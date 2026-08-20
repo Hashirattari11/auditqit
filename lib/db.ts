@@ -1,16 +1,25 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY!;
-
 const globalForSupabase = globalThis as unknown as {
   supabase: SupabaseClient | undefined;
 };
 
-export const supabase =
-  globalForSupabase.supabase ?? createClient(supabaseUrl, supabaseKey);
+function getSupabase(): SupabaseClient {
+  if (globalForSupabase.supabase) return globalForSupabase.supabase;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required');
+  const client = createClient(url, key);
+  if (process.env.NODE_ENV !== 'production') globalForSupabase.supabase = client;
+  return client;
+}
 
-if (process.env.NODE_ENV !== 'production') globalForSupabase.supabase = supabase;
+// Lazy proxy — defers createClient until first actual use
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return (getSupabase() as any)[prop];
+  },
+});
 
 // Database helper types
 export interface Audit {

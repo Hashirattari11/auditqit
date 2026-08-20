@@ -1,37 +1,27 @@
 # Project Context
 
-## Status: Vercel build failing — needs fix
+## CRITICAL: Fixing Supabase lazy init for Vercel build
+- Error: `supabaseUrl is required` during `next build` "Collecting page data"
+- Fix needed: `lib/db.ts` line 10-11 — `createClient()` runs at module load, env vars not available at build time
+- Solution: Make `supabase` export a lazy getter function
 
-## Problem
-Vercel is building commit `decc8be` (first commit, missing deps) instead of `0a9215f` (latest with deps). But `git log origin/main` shows `0a9215f` is on GitHub. So either Vercel is caching, or the user triggered deploy from an old commit.
+## Repo
+- GitHub: https://github.com/Hashirattari11/auditqit  
+- Latest commit: `9c66117`
+- Local: D:\auditiq, git clean
 
-## Current State
-- Repo: https://github.com/Hashirattari11/auditqit
-- Commits on main: `0a9215f` (latest, has deps) → `decc8be` (initial)
-- Local: D:\auditiq, git synced with origin/main
-- Dev server was running on localhost:3000
+## Vercel Build Errors Fixed So Far
+1. Missing deps (commit 0a9215f): @sparticuz/chromium, puppeteer-core, resend
+2. Type errors (commit 9c66117): PDF chromium types, Buffer.from, Stripe lazy init, rpc().catch(), spread types
+3. CURRENT: supabaseUrl required — db.ts module-level createClient
 
-## Last Action
-- Verified git log shows `0a9215f` is latest on both local and remote
-- User said Vercel still shows old commit in build log
+## Fixes Already Applied to local files (not yet committed)
+- `next.config.js` — standalone output, all externals listed
+- `.npmrc` — playwright_skip_browser_download=true
+- `package.json` — build script: `prisma generate && next build`
+- `vercel.json` — buildCommand with prisma generate
 
-## Possible Causes
-1. Vercel auto-deploy triggered from old commit before push completed
-2. Vercel build cache showing old result
-3. User needs to trigger a new deployment from Vercel dashboard
-
-## Fix Options
-1. Tell user to click "Redeploy" in Vercel dashboard on the latest deployment
-2. Make a small empty commit and push to trigger fresh build
-3. Check if `next.config.js` has wrong `serverComponentsExternalPackages` config — `@sparticuz/chromium` and `resend` should NOT be in external packages if they need to be bundled
-
-## Also Need to Check
-- `next.config.js` may be misconfigured — external packages list may cause issues
-- PDF routes use dynamic import which is good, but webpack still resolves at build time
-- Need to verify all pages compile after deps added
-
-## Next Steps
-1. Make a small commit to force Vercel rebuild from latest
-2. Also fix next.config.js if needed
-3. Verify build works locally first: `npm run build`
-4. Tell user to redeploy
+## Still Need
+- Fix lib/db.ts lazy supabase client
+- Commit all fixes and push
+- Verify build passes locally

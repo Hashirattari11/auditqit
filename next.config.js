@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: [
       'lighthouse',
@@ -7,6 +8,11 @@ const nextConfig = {
       'chrome-launcher',
       'stripe',
       'puppeteer-core',
+      '@sparticuz/chromium',
+      'resend',
+      'openai',
+      'cheerio',
+      'bcryptjs',
     ],
   },
   images: {
