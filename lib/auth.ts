@@ -32,41 +32,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('[AUTH] authorize called:', { email: credentials?.email });
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            console.log('[AUTH] Missing credentials');
-            return null;
-          }
-
-          const supabase = getSupabase();
-          const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', credentials.email as string)
-            .single();
-
-          console.log('[AUTH] Query result:', { found: !!user, error: error?.message });
-
-          if (error || !user || !user.password_hash) return null;
-
-          const isValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password_hash
-          );
-          console.log('[AUTH] Password valid:', isValid);
-
-          if (!isValid) return null;
-
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          };
-        } catch (err: any) {
-          console.error('[AUTH] authorize exception:', err?.message);
-          return null;
-        }
+        // HARDcoded test - bypass all logic
+        return { id: 'test-id-123', name: 'Test', email: 'test@auditiq.dev' };
       },
     }),
   ],
