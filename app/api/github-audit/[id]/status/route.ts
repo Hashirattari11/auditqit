@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { runGitHubAuditInline, isGitHubAuditRunning } from '@/lib/github-audit-runner';
+import { runGitHubAuditInline } from '@/lib/github-audit-runner';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function GET(
   _request: NextRequest,
@@ -10,36 +11,68 @@ export async function GET(
 ) {
   try {
     const { id } = params;
-
     const audit = await db.getRepoAudit(id);
 
     if (!audit) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
     }
 
-    // Serverless pattern: trigger audit when status is "pending"
-    if (audit.status === 'pending' && !isGitHubAuditRunning(audit.id)) {
-      runGitHubAuditInline(audit.repo_url, audit.id).catch(() => {});
-
+    if (audit.status === 'running') {
       return NextResponse.json({
         id: audit.id,
         repoUrl: audit.repo_url,
         owner: audit.owner,
         repo: audit.repo,
         status: 'running',
-        currentStep: 'Starting audit...',
+        currentStep: audit.current_step || 'Working...',
         createdAt: audit.created_at,
       });
     }
 
+    if (audit.status === 'completed' || audit.status === 'failed') {
+      return NextResponse.json({
+        id: audit.id,
+        repoUrl: audit.repo_url,
+        owner: audit.owner,
+        repo: audit.repo,
+        status: audit.status,
+        currentStep: '',
+        results: audit.results,
+        aiSummary: audit.ai_summary,
+        createdAt: audit.created_at,
+      });
+    }
+
+    // PENDING: atomically claim and run
+    const claimed = await db.claimRepoAudit(audit.id);
+
+    if (!claimed) {
+      const fresh = await db.getRepoAudit(audit.id);
+      return NextResponse.json({
+        id: audit.id,
+        repoUrl: audit.repo_url,
+        owner: audit.owner,
+        repo: audit.repo,
+        status: fresh?.status || 'running',
+        currentStep: fresh?.current_step || 'Starting...',
+        createdAt: audit.created_at,
+      });
+    }
+
+    console.log(`GitHub audit ${audit.id} claimed — running synchronously...`);
+    await runGitHubAuditInline(audit.repo_url, audit.id);
+
+    const completed = await db.getRepoAudit(audit.id);
     return NextResponse.json({
-      id: audit.id,
-      repoUrl: audit.repo_url,
-      owner: audit.owner,
-      repo: audit.repo,
-      status: audit.status,
-      currentStep: audit.current_step,
-      createdAt: audit.created_at,
+      id: completed!.id,
+      repoUrl: completed!.repo_url,
+      owner: completed!.owner,
+      repo: completed!.repo,
+      status: completed!.status,
+      currentStep: '',
+      results: completed!.results,
+      aiSummary: completed!.ai_summary,
+      createdAt: completed!.created_at,
     });
   } catch (error) {
     console.error('Failed to get GitHub audit status:', error);
