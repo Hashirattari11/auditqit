@@ -39,3 +39,6 @@ prisma/migrations/
 
 # worker dist
 workers/dist/
+
+.vercel
+.env*

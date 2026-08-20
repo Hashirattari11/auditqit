@@ -1,68 +1,94 @@
-# Phase 4 — PDF Reports, Polish, Production Launch ✅ COMPLETE
+# AuditIQ — Full Mission Tracker
 
-## M1: PDF & Email System ✅
-### T1.1: PDF Generation API Routes ✅
-- [x] S1.1.1: /api/report/[id]/pdf — web audit PDF (puppeteer-core) ✅
-- [x] S1.1.2: /api/github-report/[id]/pdf — GitHub audit PDF ✅
+## M1: Core Audit Engine ✅ | status: completed
+### T1.1: Web Audit ✅
+- [x] S1.1.1: Lighthouse audit worker | size:M
+- [x] S1.1.2: Playwright screenshots | size:M
+- [x] S1.1.3: Security headers check | size:S
+- [x] S1.1.4: Broken links checker | size:S
+- [x] S1.1.5: SEO analysis | size:S
 
-### T1.2: PDF Mode in Report Pages ✅
-- [x] S1.2.1: app/report/[id]/page.tsx — ?pdf=true support ✅
-- [x] S1.2.2: app/github-report/[id]/page.tsx — ?pdf=true support ✅
+### T1.2: GitHub Code Audit ✅
+- [x] S1.2.1: Octokit repo fetch | size:M
+- [x] S1.2.2: Pattern-based code analysis | size:M
 
-### T1.3: Email Reports ✅
-- [x] S1.3.1: lib/email.ts — Resend email sender ✅
-- [x] S1.3.2: app/api/email/report/route.ts — Email trigger endpoint ✅
+### T1.3: Database & API ✅
+- [x] S1.3.1: Supabase tables (audits, repo_audits) | size:S
+- [x] S1.3.2: API routes (start, status, report) | size:M
+- [x] S1.3.3: Report pages | size:M
 
-## M2: UI Polish ✅
-### T2.1: Landing Page Overhaul ✅
-- [x] S2.1.1: app/page.tsx — Animated hero, how-it-works, testimonials, FAQ ✅
+## M2: AI Integration ✅ | status: completed
+### T2.1: NVIDIA Nemotron ✅
+- [x] S2.1.1: lib/llm.ts — OpenAI-compatible client | size:S
+- [x] S2.1.2: generateAISummary — web audit | size:S
+- [x] S2.1.3: generateGitHubAISummary — code review | size:S
 
-### T2.2: Dashboard Enhancement ✅
-- [x] S2.2.1: app/dashboard/page.tsx — Stats cards, audit history, search ✅
+## M3: Auth, Limits, Payments ✅ | status: completed
+### T3.1: Authentication ✅
+- [x] S3.1.1: NextAuth v5 credentials + JWT | size:M
+- [x] S3.1.2: Signup + Login pages | size:M
+- [x] S3.1.3: Route protection middleware | size:S
 
-### T2.3: Global UI ✅
-- [x] S2.3.1: app/globals.css — Animations, print styles, skeleton shimmer ✅
-- [x] S2.3.2: app/loading.tsx — Global loading component ✅
-- [x] S2.3.3: components/Toast.tsx — Toast notification system ✅
-- [x] S2.3.4: components/LoadingSkeleton.tsx — Skeleton components ✅
-- [x] S2.3.5: app/not-found.tsx — Custom 404 ✅
-- [x] S2.3.6: app/error.tsx — Custom 500 ✅
+### T3.2: Usage Limits ✅
+- [x] S3.2.1: Anonymous 2/day (ip_usage) | size:S
+- [x] S3.2.2: Free 5/month (users) | size:S
+- [x] S3.2.3: Auto-reset on month change | size:S
 
-## M3: SEO & Config ✅
-### T3.1: SEO ✅
-- [x] S3.1.1: Layout metadata update (OpenGraph, Twitter, keywords) ✅
-- [x] S3.1.2: next-sitemap.config.js ✅
+### T3.3: Stripe Payments ✅
+- [x] S3.3.1: Checkout, webhook, portal routes | size:M
+- [x] S3.3.2: Pricing page | size:S
+- [x] S3.3.3: UpgradeModal component | size:S
 
-### T3.2: Config & Deployment ✅
-- [x] S3.2.1: vercel.json — 60s function timeout ✅
-- [x] S3.2.2: next.config.js — puppeteer-core external ✅
-- [x] S3.2.3: DEPLOYMENT.md ✅
+## M4: PDF, Polish, Production ✅ | status: completed
+### T4.1: PDF Generation ✅
+- [x] S4.1.1: /api/report/[id]/pdf route | size:M
+- [x] S4.1.2: /api/github-report/[id]/pdf route | size:M
+- [x] S4.1.3: lib/email.ts — Resend sender | size:S
 
-## M4: Admin & Launch ✅
-### T4.1: Admin Dashboard ✅
-- [x] S4.1.1: app/admin/page.tsx ✅
-- [x] S4.1.2: app/api/admin/stats/route.ts ✅
+### T4.2: UI Polish ✅
+- [x] S4.2.1: Toast notification system | size:S
+- [x] S4.2.2: Loading skeleton components | size:S
+- [x] S4.2.3: Custom 404 + 500 pages | size:S
+- [x] S4.2.4: Global loading component | size:S
+- [x] S4.2.5: Admin dashboard | size:M
+- [x] S4.2.6: Launch/waitlist page | size:M
+- [x] S4.2.7: Stats API | size:S
 
-### T4.2: ProductHunt Launch ✅
-- [x] S4.2.1: app/launch/page.tsx ✅
-- [x] S4.2.2: app/api/waitlist/route.ts ✅
+### T4.3: SEO & Config ✅
+- [x] S4.3.1: Layout metadata (OG, Twitter, keywords) | size:S
+- [x] S4.3.2: next-sitemap.config.js | size:S
+- [x] S4.3.3: vercel.json | size:S
+- [x] S4.3.4: DEPLOYMENT.md | size:S
 
-### T4.3: Stats API ✅
-- [x] S4.3.1: app/api/stats/route.ts ✅
+## M5: Vercel Deployment ✅ | status: completed
+### T5.1: Build Fixes ✅
+- [x] S5.1.1: Missing deps (puppeteer-core, @sparticuz/chromium, resend) | size:S
+- [x] S5.1.2: Type errors (PDF Buffer.from, rpc try/catch, spread as any) | size:S
+- [x] S5.1.3: Stripe lazy init (require inside handlers) | size:S
+- [x] S5.1.4: Lazy Supabase client (proxy pattern) | size:S
+- [x] S5.1.5: Middleware Edge Runtime fix (getToken instead of auth() wrapper) | size:S
+- [x] S5.1.6: Standalone output + externals in next.config.js | size:S
+- [x] S5.1.7: .npmrc playwright_skip_browser_download | size:S
+- [x] S5.1.8: prisma generate in build script | size:S
 
-## Verification Evidence
-- Homepage: 200 (13KB) ✅
-- Pricing: 200 (18KB) ✅
-- Login: 200 (11KB) ✅
-- Signup: 200 (12KB) ✅
-- Dashboard: 307 (redirects to login) ✅
-- Admin: 200 (9KB) ✅
-- Launch: 200 (12KB) ✅
-- /api/stats: 200 — {"totalAudits":4,"todayAudits":4} ✅
-- /api/admin/stats: 200 — 3 users, 4 audits, DB connected ✅
-- Zero compilation errors ✅
+### T5.2: Vercel Configuration ✅
+- [x] S5.2.1: Git repo created and pushed (github.com/Hashirattari11/auditqit) | size:S
+- [x] S5.2.2: Project linked (auditqit-0) | size:S
+- [x] S5.2.3: 8 env vars set via Vercel CLI | size:S
+- [x] S5.2.4: Production deploy verified | size:S
 
-## Remaining (non-blocking, env keys not configured)
-- STRIPE_SECRET_KEY — Stripe payments disabled
-- RESEND_API_KEY — Email reports skipped
-- GOOGLE_CLIENT_ID/SECRET — Google OAuth disabled
+### T5.3: Live Verification ✅
+- [x] S5.3.1: Homepage loads (200, 12.6KB) | size:S
+- [x] S5.3.2: /auth/signup page loads (200, 11.2KB) | size:S
+- [x] S5.3.3: /auth/login page loads (200, 10.5KB) | size:S
+- [x] S5.3.4: /pricing page loads (200, 17.1KB) | size:S
+- [x] S5.3.5: /launch page loads (200, 12KB) | size:S
+- [x] S5.3.6: /admin page loads (200, 8.5KB) | size:S
+- [x] S5.3.7: /dashboard redirects to login (307, protected) | size:S
+- [x] S5.3.8: /api/stats returns data (200, {"totalAudits":4}) | size:S
+- [x] S5.3.9: /api/auth/signup creates user (200) | size:S
+
+## Remaining (non-blocking)
+- STRIPE_SECRET_KEY — not configured, Stripe disabled
+- RESEND_API_KEY — not configured, email reports skipped
+- GOOGLE_CLIENT_ID/SECRET — not configured, Google OAuth disabled
