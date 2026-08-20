@@ -1,5 +1,3 @@
-import lighthouse from 'lighthouse';
-
 interface LighthouseResult {
   performance: number;
   seo: number;
@@ -15,22 +13,25 @@ interface LighthouseResult {
   raw: Record<string, unknown>;
 }
 
+const EMPTY_RESULT: LighthouseResult = {
+  performance: 0,
+  seo: 0,
+  accessibility: 0,
+  bestPractices: 0,
+  metrics: { lcp: null, cls: null, fcp: null, ttfb: null, tbt: null },
+  raw: {},
+};
+
 export async function runLighthouse(url: string): Promise<LighthouseResult> {
   // Try to find Chrome via chrome-launcher
   let chrome;
   try {
     const chromeLauncher = await import('chrome-launcher');
     chrome = await chromeLauncher.launch({
-      chromeFlags: [
-        '--headless',
-        '--disable-gpu',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-extensions',
-      ],
+      chromeFlags: ['--headless', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage', '--disable-extensions'],
     });
-  } catch (err) {
-    // Chrome not available (Vercel serverless) — try puppeteer as fallback
+  } catch {
+    // Chrome not available — try puppeteer as fallback
     try {
       const puppeteer = await import('puppeteer-core');
       const chromium = await import('@sparticuz/chromium');
@@ -39,28 +40,35 @@ export async function runLighthouse(url: string): Promise<LighthouseResult> {
         executablePath: await chromium.default.executablePath(),
         headless: true,
       });
-      // Use puppeteer's Chrome DevTools Protocol for Lighthouse
       const browserWSEndpoint = browser.wsEndpoint();
       const port = parseInt(new URL(browserWSEndpoint).port);
       const result = await runLighthouseWithPort(url, port);
       await browser.close();
       return result;
     } catch {
-      throw new Error('Lighthouse unavailable: No Chrome/Chromium found');
+      // No browser available at all — lighthouse cannot run
+      throw new Error('Lighthouse unavailable: No Chrome/Chromium found on this server');
     }
   }
 
   try {
     return await runLighthouseWithPort(url, chrome.port);
   } finally {
-    if (chrome) {
-      await chrome.kill();
-    }
+    if (chrome) await chrome.kill();
   }
 }
 
 async function runLighthouseWithPort(url: string, port: number): Promise<LighthouseResult> {
-  const result = await lighthouse(url, {
+  // Dynamic import to avoid bundle-time failures (missing locale files on Vercel)
+  let lighthouseFn: any;
+  try {
+    const mod = await import('lighthouse');
+    lighthouseFn = mod.default || mod;
+  } catch (err) {
+    throw new Error(`Lighthouse module unavailable: ${err instanceof Error ? err.message : 'import failed'}`);
+  }
+
+  const result = await lighthouseFn(url, {
     port,
     output: 'json',
     logLevel: 'error',
@@ -74,8 +82,7 @@ async function runLighthouseWithPort(url: string, port: number): Promise<Lightho
   const lhr = result.lhr;
 
   const getMetric = (id: string): number | null => {
-    const audit = lhr.audits[id];
-    return audit?.numericValue ?? null;
+    return lhr.audits[id]?.numericValue ?? null;
   };
 
   const getCategoryScore = (id: string): number => {
