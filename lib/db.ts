@@ -109,16 +109,12 @@ export const db = {
 
   /** Atomically claim a pending audit — returns true if WE won the race */
   async claimAudit(id: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('audits')
-      .update({ status: 'running', updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id')
-      .single();
-
-    if (error || !data) return false;
-    return true;
+    const { data, error } = await supabase.rpc('claim_audit', { audit_id: id });
+    if (error) {
+      console.error('claimAudit RPC error:', error);
+      return false;
+    }
+    return data === true;
   },
 
   async getRecentAudits(limit = 5, userId?: string): Promise<Audit[]> {
@@ -178,16 +174,12 @@ export const db = {
 
   /** Atomically claim a pending repo audit — returns true if WE won the race */
   async claimRepoAudit(id: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('repo_audits')
-      .update({ status: 'running', updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id')
-      .single();
-
-    if (error || !data) return false;
-    return true;
+    const { data, error } = await supabase.rpc('claim_repo_audit', { audit_id: id });
+    if (error) {
+      console.error('claimRepoAudit RPC error:', error);
+      return false;
+    }
+    return data === true;
   },
 
   async getRecentRepoAudits(limit = 5, userId?: string): Promise<RepoAudit[]> {
