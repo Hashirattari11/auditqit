@@ -38,9 +38,9 @@ export default function ErrorsList({ errors }: { errors: string[] }) {
           {errors.map((error, index) => (
             <div
               key={index}
-              className="px-3 py-2 bg-red-500/5 border border-red-500/10 rounded-lg text-sm font-mono text-dark-300 break-all"
+              className="px-3 py-2 bg-red-500/5 border border-red-500/10 rounded-lg text-sm font-mono text-text-secondary break-all"
             >
-              <span className="text-dark-500 mr-2">#{index + 1}</span>
+              <span className="text-text-muted mr-2">#{index + 1}</span>
               {error}
             </div>
           ))}

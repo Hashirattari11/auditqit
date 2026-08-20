@@ -39,11 +39,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const icons = { success: '✓', error: '✗', info: 'i' };
   const colors = {
     success: 'border-accent-green/30 bg-accent-green/10',
     error: 'border-accent-red/30 bg-accent-red/10',
-    info: 'border-accent-blue/30 bg-accent-blue/10',
+    info: 'border-primary/30 bg-primary/10',
   };
 
   return (
@@ -53,17 +53,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto animate-slide-in px-4 py-3 rounded-xl border backdrop-blur-sm shadow-lg max-w-sm ${colors[t.type]}`}
+            className={`pointer-events-auto animate-slide-in-right px-4 py-3 rounded-xl border backdrop-blur-sm shadow-lg max-w-sm ${colors[t.type]}`}
           >
             <div className="flex items-center gap-2">
-              <span>{icons[t.type]}</span>
-              <span className="text-sm text-white">{t.message}</span>
-              <button
-                onClick={() => removeToast(t.id)}
-                className="ml-auto text-dark-400 hover:text-white text-xs"
-              >
-                ×
-              </button>
+              <span className="text-sm">{icons[t.type]}</span>
+              <span className="text-sm text-text-primary">{t.message}</span>
+              <button onClick={() => removeToast(t.id)} className="ml-auto text-text-muted hover:text-text-primary text-xs transition-colors">×</button>
             </div>
           </div>
         ))}

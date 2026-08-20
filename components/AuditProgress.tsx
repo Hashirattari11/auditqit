@@ -60,7 +60,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
 
   if (!audit) {
     return (
-      <div className="flex items-center gap-3 text-dark-300">
+      <div className="flex items-center gap-3 text-text-secondary">
         <div className="animate-spin h-5 w-5 border-2 border-accent-blue border-t-transparent rounded-full" />
         <span>Connecting to audit engine...</span>
       </div>
@@ -71,7 +71,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
     return (
       <div className="text-center">
         <div className="text-2xl font-bold text-accent-green mb-2">Audit Complete!</div>
-        <div className="text-dark-400">Loading results...</div>
+        <div className="text-text-muted">Loading results...</div>
       </div>
     );
   }
@@ -80,7 +80,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
     return (
       <div className="text-center">
         <div className="text-2xl font-bold text-accent-red mb-2">Audit Failed</div>
-        <div className="text-dark-400">{currentStepText || "An unexpected error occurred."}</div>
+        <div className="text-text-muted">{currentStepText || "An unexpected error occurred."}</div>
       </div>
     );
   }
@@ -88,7 +88,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
   return (
     <div className="w-full max-w-xl mx-auto space-y-4">
       <div className="text-center mb-6">
-        <div className="text-lg text-dark-200 font-medium">
+        <div className="text-lg text-text-primary font-medium">
           Auditing <span className="text-accent-blue">{audit.url}</span>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
                   ? "bg-accent-blue/10 border border-accent-blue/20"
                   : status === "done"
                   ? "bg-accent-green/5 border border-accent-green/10"
-                  : "bg-dark-800/50 border border-transparent"
+                  : "bg-bg/50 border border-transparent"
               }`}
             >
               <div
@@ -113,7 +113,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
                     ? "bg-accent-blue text-white animate-pulse"
                     : status === "done"
                     ? "bg-accent-green text-white"
-                    : "bg-dark-700 text-dark-400"
+                    : "bg-bg-surface text-text-muted"
                 }`}
               >
                 {status === "done" ? (
@@ -131,8 +131,8 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
                   status === "running"
                     ? "text-dark-100 font-medium"
                     : status === "done"
-                    ? "text-dark-400"
-                    : "text-dark-500"
+                    ? "text-text-muted"
+                    : "text-text-muted"
                 }`}
               >
                 {step.label}
@@ -145,7 +145,7 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
         })}
       </div>
 
-      <div className="text-center text-dark-500 text-xs mt-4">
+      <div className="text-center text-text-muted text-xs mt-4">
         Poll #{pollCount} — Updates every 2 seconds
       </div>
     </div>

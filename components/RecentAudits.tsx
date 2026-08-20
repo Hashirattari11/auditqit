@@ -32,7 +32,7 @@ export default function RecentAudits() {
 
   if (loading) {
     return (
-      <div className="text-dark-500 text-sm">Loading recent audits...</div>
+      <div className="text-text-muted text-sm">Loading recent audits...</div>
     );
   }
 
@@ -42,19 +42,19 @@ export default function RecentAudits() {
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-12">
-      <h3 className="text-sm font-medium text-dark-400 mb-3 uppercase tracking-wider">Recent Public Audits</h3>
+      <h3 className="text-sm font-medium text-text-muted mb-3 uppercase tracking-wider">Recent Public Audits</h3>
       <div className="space-y-2">
         {audits.map((audit) => (
           <a
             key={audit.id}
             href={`/report/${audit.id}`}
-            className="flex items-center justify-between px-4 py-3 rounded-lg bg-dark-800/50 
-                       border border-dark-700/50 hover:border-dark-600 transition group"
+            className="flex items-center justify-between px-4 py-3 rounded-lg bg-bg/50 
+                       border border-border-subtle/50 hover:border-border-subtle transition group"
           >
-            <span className="text-dark-300 text-sm truncate group-hover:text-dark-100 transition">
+            <span className="text-text-secondary text-sm truncate group-hover:text-dark-100 transition">
               {audit.url}
             </span>
-            <span className="text-dark-500 text-xs flex-shrink-0 ml-4">
+            <span className="text-text-muted text-xs flex-shrink-0 ml-4">
               {new Date(audit.createdAt).toLocaleDateString()}
             </span>
           </a>

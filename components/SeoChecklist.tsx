@@ -8,7 +8,7 @@ interface SeoItem {
 
 export default function SeoChecklist({ seo }: { seo: Record<string, unknown> | unknown }) {
   if (!seo || typeof seo !== "object") {
-    return <div className="text-dark-400 text-sm">No SEO data available</div>;
+    return <div className="text-text-muted text-sm">No SEO data available</div>;
   }
 
   const data = seo as Record<string, Record<string, unknown>>;
@@ -73,14 +73,14 @@ export default function SeoChecklist({ seo }: { seo: Record<string, unknown> | u
 
   return (
     <div>
-      <div className="mb-3 text-sm text-dark-400">
+      <div className="mb-3 text-sm text-text-muted">
         {passCount}/{items.length} checks passed
       </div>
       <div className="space-y-2">
         {items.map((item, index) => (
           <div
             key={index}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg bg-dark-800/50"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg/50"
           >
             <span
               className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
@@ -99,8 +99,8 @@ export default function SeoChecklist({ seo }: { seo: Record<string, unknown> | u
                 </svg>
               )}
             </span>
-            <span className="text-sm text-dark-200 flex-1">{item.label}</span>
-            <span className="text-xs text-dark-400">{item.detail}</span>
+            <span className="text-sm text-text-primary flex-1">{item.label}</span>
+            <span className="text-xs text-text-muted">{item.detail}</span>
           </div>
         ))}
       </div>

@@ -29,7 +29,7 @@ const SEVERITY_COLORS = {
   high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  info: 'bg-dark-500/20 text-dark-300 border-dark-500/30',
+  info: 'bg-primary/10 text-text-secondary border-primary/20',
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -111,7 +111,7 @@ export default function GitHubReportPage() {
         <div className="text-center max-w-md mx-auto px-4">
           <div className="animate-spin h-12 w-12 border-4 border-accent-purple border-t-transparent rounded-full mx-auto mb-6" />
           <h1 className="text-2xl font-bold mb-2">Scanning Repository</h1>
-          <p className="text-dark-300 mb-4">
+          <p className="text-text-secondary mb-4">
             {status?.owner && status?.repo
               ? `${status.owner}/${status.repo}`
               : 'Loading...'}
@@ -119,7 +119,7 @@ export default function GitHubReportPage() {
           {status?.currentStep && (
             <p className="text-accent-purple text-sm">{status.currentStep}</p>
           )}
-          <p className="text-dark-400 text-sm mt-4">This may take 30-60 seconds</p>
+          <p className="text-text-muted text-sm mt-4">This may take 30-60 seconds</p>
         </div>
       </main>
     );
@@ -132,7 +132,7 @@ export default function GitHubReportPage() {
         <div className="text-center max-w-md mx-auto px-4">
           <div className="text-6xl mb-6">❌</div>
           <h1 className="text-2xl font-bold mb-2">Audit Failed</h1>
-          <p className="text-dark-300 mb-6">
+          <p className="text-text-secondary mb-6">
             Failed to audit {status.owner}/{status.repo}
           </p>
           <button
@@ -150,7 +150,7 @@ export default function GitHubReportPage() {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-dark-300">No report data available</p>
+          <p className="text-text-secondary">No report data available</p>
         </div>
       </main>
     );
@@ -172,22 +172,22 @@ export default function GitHubReportPage() {
   return (
     <main className="min-h-screen pb-20">
       {/* Header */}
-      <header className="border-b border-dark-600/50 sticky top-0 z-10 bg-dark-900/95 backdrop-blur-sm">
+      <header className="border-b border-border-subtle sticky top-0 z-10 bg-bg/95 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/')} className="text-dark-300 hover:text-white">
+            <button onClick={() => router.push('/')} className="text-text-secondary hover:text-white">
               ← Back
             </button>
-            <div className="w-px h-6 bg-dark-600" />
-            <span className="text-sm text-dark-300">
+            <div className="w-px h-6 bg-bg-surface" />
+            <span className="text-sm text-text-secondary">
               🐙 {report.owner}/{report.repo}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleShare} className="px-3 py-1.5 text-sm rounded-lg bg-dark-700 text-dark-200 hover:bg-dark-600">
+            <button onClick={handleShare} className="px-3 py-1.5 text-sm rounded-lg bg-bg-surface text-text-primary hover:bg-bg-surface">
               Share
             </button>
-            <button onClick={handlePrint} className="px-3 py-1.5 text-sm rounded-lg bg-dark-700 text-dark-200 hover:bg-dark-600">
+            <button onClick={handlePrint} className="px-3 py-1.5 text-sm rounded-lg bg-bg-surface text-text-primary hover:bg-bg-surface">
               Print
             </button>
           </div>
@@ -225,23 +225,23 @@ export default function GitHubReportPage() {
 
       {/* Repo Info */}
       <section className="max-w-6xl mx-auto px-4 pb-6">
-        <div className="p-5 rounded-xl bg-dark-700/50 border border-dark-600/50">
+        <div className="p-5 rounded-xl bg-bg-surface border border-border-subtle">
           <div className="flex flex-wrap items-center gap-4">
             <span className="text-3xl">🐙</span>
             <div>
               <h2 className="text-xl font-bold">{repoInfo.owner}/{repoInfo.repo}</h2>
               {repoInfo.description && (
-                <p className="text-dark-300 text-sm mt-1">{repoInfo.description}</p>
+                <p className="text-text-secondary text-sm mt-1">{repoInfo.description}</p>
               )}
             </div>
             <div className="flex flex-wrap gap-3 ml-auto text-sm">
               {repoInfo.language && (
                 <span className="px-2 py-1 rounded bg-accent-blue/20 text-accent-blue">{repoInfo.language}</span>
               )}
-              <span className="text-dark-300">⭐ {repoInfo.stars}</span>
-              <span className="text-dark-300">🍴 {repoInfo.forks}</span>
-              <span className="text-dark-300">📄 {results.filesScanned} files scanned</span>
-              <span className="text-dark-300">📝 {summary.totalLines?.toLocaleString()} lines</span>
+              <span className="text-text-secondary">⭐ {repoInfo.stars}</span>
+              <span className="text-text-secondary">🍴 {repoInfo.forks}</span>
+              <span className="text-text-secondary">📄 {results.filesScanned} files scanned</span>
+              <span className="text-text-secondary">📝 {summary.totalLines?.toLocaleString()} lines</span>
             </div>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function GitHubReportPage() {
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
               🤖 AI Analysis
             </h3>
-            <div className="prose prose-invert prose-sm max-w-none text-dark-200 leading-relaxed whitespace-pre-wrap">
+            <div className="prose prose-invert prose-sm max-w-none text-text-primary leading-relaxed whitespace-pre-wrap">
               {report.aiSummary}
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function GitHubReportPage() {
             <select
               value={filterSeverity}
               onChange={(e) => setFilterSeverity(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-lg bg-dark-700 border border-dark-600 text-white"
+              className="px-3 py-1.5 text-sm rounded-lg bg-bg-surface border border-border-subtle text-white"
             >
               <option value="all">All Severities</option>
               <option value="critical">Critical</option>
@@ -283,7 +283,7 @@ export default function GitHubReportPage() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-lg bg-dark-700 border border-dark-600 text-white"
+              className="px-3 py-1.5 text-sm rounded-lg bg-bg-surface border border-border-subtle text-white"
             >
               <option value="all">All Categories</option>
               <option value="security">Security</option>
@@ -297,19 +297,19 @@ export default function GitHubReportPage() {
 
         <div className="space-y-3">
           {filteredIssues.length === 0 ? (
-            <div className="p-8 text-center rounded-xl bg-dark-700/30 border border-dark-600/30">
+            <div className="p-8 text-center rounded-xl bg-bg-surface/30 border border-border-subtle/30">
               <span className="text-4xl mb-4 block">✅</span>
-              <p className="text-dark-300">No issues found with current filters</p>
+              <p className="text-text-secondary">No issues found with current filters</p>
             </div>
           ) : (
             filteredIssues.map((issue: any) => (
               <div
                 key={issue.id}
-                className="rounded-xl border border-dark-600/50 overflow-hidden"
+                className="rounded-xl border border-border-subtle overflow-hidden"
               >
                 <button
                   onClick={() => toggleIssue(issue.id)}
-                  className="w-full p-4 flex items-start gap-3 text-left hover:bg-dark-700/30 transition-colors"
+                  className="w-full p-4 flex items-start gap-3 text-left hover:bg-bg-surface/30 transition-colors"
                 >
                   <span className="text-lg">{CATEGORY_ICONS[issue.category] || '📋'}</span>
                   <div className="flex-1 min-w-0">
@@ -317,25 +317,25 @@ export default function GitHubReportPage() {
                       <span className={`px-2 py-0.5 text-xs rounded border ${SEVERITY_COLORS[issue.severity as keyof typeof SEVERITY_COLORS] || SEVERITY_COLORS.info}`}>
                         {issue.severity.toUpperCase()}
                       </span>
-                      <span className="text-dark-400 text-xs">{issue.category}</span>
+                      <span className="text-text-muted text-xs">{issue.category}</span>
                     </div>
                     <h4 className="font-medium mt-1">{issue.title}</h4>
-                    <p className="text-dark-300 text-sm mt-0.5">{issue.description}</p>
-                    <p className="text-dark-400 text-xs mt-1">
+                    <p className="text-text-secondary text-sm mt-0.5">{issue.description}</p>
+                    <p className="text-text-muted text-xs mt-1">
                       📁 {issue.file}{issue.line ? `:${issue.line}` : ''}
                     </p>
                   </div>
-                  <span className="text-dark-400 text-lg">
+                  <span className="text-text-muted text-lg">
                     {expandedIssues.has(issue.id) ? '▼' : '▶'}
                   </span>
                 </button>
 
                 {expandedIssues.has(issue.id) && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-dark-600/30 pt-3">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border-subtle/30 pt-3">
                     {/* Code Snippet */}
                     <div>
-                      <p className="text-xs text-dark-400 mb-1">Code:</p>
-                      <pre className="p-3 rounded-lg bg-dark-900 text-sm overflow-x-auto text-dark-200">
+                      <p className="text-xs text-text-muted mb-1">Code:</p>
+                      <pre className="p-3 rounded-lg bg-bg text-sm overflow-x-auto text-text-primary">
                         {issue.codeSnippet}
                       </pre>
                     </div>
@@ -343,14 +343,14 @@ export default function GitHubReportPage() {
                     {/* Fix Suggestion */}
                     <div>
                       <p className="text-xs text-accent-green mb-1">💡 Fix:</p>
-                      <p className="text-sm text-dark-200">{issue.fixSuggestion}</p>
+                      <p className="text-sm text-text-primary">{issue.fixSuggestion}</p>
                     </div>
 
                     {/* Fixed Code */}
                     {issue.fixedCode && (
                       <div>
                         <p className="text-xs text-accent-blue mb-1">✅ Corrected Code:</p>
-                        <pre className="p-3 rounded-lg bg-dark-900 text-sm overflow-x-auto text-green-300">
+                        <pre className="p-3 rounded-lg bg-bg text-sm overflow-x-auto text-green-300">
                           {issue.fixedCode}
                         </pre>
                       </div>
@@ -370,23 +370,23 @@ export default function GitHubReportPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-dark-600">
-                  <th className="text-left py-2 px-3 text-dark-300">File</th>
-                  <th className="text-right py-2 px-3 text-dark-300">Lines</th>
-                  <th className="text-right py-2 px-3 text-dark-300">Functions</th>
-                  <th className="text-right py-2 px-3 text-dark-300">Complexity</th>
-                  <th className="text-right py-2 px-3 text-dark-300">Issues</th>
+                <tr className="border-b border-border-subtle">
+                  <th className="text-left py-2 px-3 text-text-secondary">File</th>
+                  <th className="text-right py-2 px-3 text-text-secondary">Lines</th>
+                  <th className="text-right py-2 px-3 text-text-secondary">Functions</th>
+                  <th className="text-right py-2 px-3 text-text-secondary">Complexity</th>
+                  <th className="text-right py-2 px-3 text-text-secondary">Issues</th>
                 </tr>
               </thead>
               <tbody>
                 {fileStats
                   .sort((a: any, b: any) => b.issueCount - a.issueCount)
                   .map((fs: any) => (
-                    <tr key={fs.path} className="border-b border-dark-700/50 hover:bg-dark-700/20">
-                      <td className="py-2 px-3 text-dark-200 font-mono text-xs">{fs.path}</td>
-                      <td className="py-2 px-3 text-right text-dark-300">{fs.lines}</td>
-                      <td className="py-2 px-3 text-right text-dark-300">{fs.functions}</td>
-                      <td className="py-2 px-3 text-right text-dark-300">{fs.complexity}</td>
+                    <tr key={fs.path} className="border-b border-border-subtle/50 hover:bg-bg-surface/20">
+                      <td className="py-2 px-3 text-text-primary font-mono text-xs">{fs.path}</td>
+                      <td className="py-2 px-3 text-right text-text-secondary">{fs.lines}</td>
+                      <td className="py-2 px-3 text-right text-text-secondary">{fs.functions}</td>
+                      <td className="py-2 px-3 text-right text-text-secondary">{fs.complexity}</td>
                       <td className="py-2 px-3 text-right">
                         <span className={`px-2 py-0.5 rounded text-xs ${
                           fs.issueCount > 5 ? 'bg-red-500/20 text-red-400' :
@@ -422,12 +422,12 @@ function ScoreCard({ label, value, color, suffix }: {
   };
 
   return (
-    <div className="p-4 rounded-xl bg-dark-700/50 border border-dark-600/50 text-center">
-      <p className="text-dark-400 text-sm mb-1">{label}</p>
+    <div className="p-4 rounded-xl bg-bg-surface border border-border-subtle text-center">
+      <p className="text-text-muted text-sm mb-1">{label}</p>
       <p className={`text-3xl font-bold ${colorMap[color] || 'text-white'}`}>
         {value}
       </p>
-      {suffix && <p className="text-dark-400 text-xs mt-1">{suffix}</p>}
+      {suffix && <p className="text-text-muted text-xs mt-1">{suffix}</p>}
     </div>
   );
 }

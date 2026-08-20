@@ -27,7 +27,7 @@ export default function MetricsBar({ metrics }: { metrics: Metric[] }) {
         return (
           <div key={index}>
             <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-medium text-dark-200">{metric.label}</span>
+              <span className="text-sm font-medium text-text-primary">{metric.label}</span>
               <span className={`text-sm font-mono font-bold ${getTextColor(metric.value, metric.threshold)}`}>
                 {metric.unit === "ms"
                   ? `${Math.round(metric.value)}ms`
@@ -36,7 +36,7 @@ export default function MetricsBar({ metrics }: { metrics: Metric[] }) {
                   : metric.value.toFixed(3)}
               </span>
             </div>
-            <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-bg rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-700 ${getBarColor(metric.value, metric.threshold)}`}
                 style={{ width: `${percentage}%` }}

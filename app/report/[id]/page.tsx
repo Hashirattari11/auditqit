@@ -99,7 +99,7 @@ export default function ReportPage() {
         <div className="text-center max-w-md mx-auto px-4">
           <div className="text-6xl mb-4">❌</div>
           <h1 className="text-2xl font-bold mb-2">Audit Failed</h1>
-          <p className="text-dark-300 mb-6">
+          <p className="text-text-secondary mb-6">
             The audit for <span className="text-white">{status.url}</span> failed. 
             This might be because the website is unreachable or timed out.
           </p>
@@ -117,7 +117,7 @@ export default function ReportPage() {
   if (!report) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-dark-300">No report data available.</div>
+        <div className="text-center text-text-secondary">No report data available.</div>
       </main>
     );
   }
@@ -125,7 +125,7 @@ export default function ReportPage() {
   return (
     <main className="min-h-screen pb-20">
       {/* Header */}
-      <header className="border-b border-dark-600/50 sticky top-0 bg-dark-900/95 backdrop-blur z-50 no-print">
+      <header className="border-b border-border-subtle sticky top-0 bg-bg/95 backdrop-blur z-50 no-print">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
@@ -139,7 +139,7 @@ export default function ReportPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleShare}
-              className="px-4 py-2 rounded-lg bg-dark-700 border border-dark-500 text-sm hover:bg-dark-600 transition-colors"
+              className="px-4 py-2 rounded-lg bg-bg-surface border border-border-subtle text-sm hover:bg-bg-surface transition-colors"
             >
               Share Report
             </button>
@@ -156,11 +156,11 @@ export default function ReportPage() {
       <div className="max-w-6xl mx-auto px-4 pt-8">
         {/* URL + Overall Score */}
         <div className="mb-8">
-          <p className="text-dark-400 text-sm mb-1">{report.url}</p>
+          <p className="text-text-muted text-sm mb-1">{report.url}</p>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <OverallScore results={report.results} />
             <div className="flex-1">
-              <p className="text-dark-400 text-sm">
+              <p className="text-text-muted text-sm">
                 Audited on {new Date(report.createdAt).toLocaleString()}
               </p>
             </div>
@@ -237,7 +237,7 @@ function ProgressView({ status, url }: { status: AuditStatus | null; url: string
         </div>
 
         <h1 className="text-2xl font-bold mb-2">Analyzing Website</h1>
-        <p className="text-dark-400 text-sm mb-8 truncate max-w-md mx-auto">{url}</p>
+        <p className="text-text-muted text-sm mb-8 truncate max-w-md mx-auto">{url}</p>
 
         <div className="space-y-3 text-left max-w-sm mx-auto">
           {steps.map((step, index) => {
@@ -256,7 +256,7 @@ function ProgressView({ status, url }: { status: AuditStatus | null; url: string
                 }`}
               >
                 <span className="text-lg">{isDone ? '✅' : isActive ? step.icon : '⏳'}</span>
-                <span className={`text-sm ${isActive ? 'text-white font-medium' : 'text-dark-300'}`}>
+                <span className={`text-sm ${isActive ? 'text-white font-medium' : 'text-text-secondary'}`}>
                   {step.label}
                 </span>
                 {isActive && (
@@ -269,7 +269,7 @@ function ProgressView({ status, url }: { status: AuditStatus | null; url: string
           })}
         </div>
 
-        <p className="text-dark-500 text-xs mt-8">
+        <p className="text-text-muted text-xs mt-8">
           This usually takes 30-60 seconds
         </p>
       </div>
@@ -338,7 +338,7 @@ function OverallScore({ results }: { results: any }) {
           <span className={`text-3xl font-bold ${getColor(overallScore)}`}>
             {overallScore}
           </span>
-          <span className="block text-dark-400 text-xs">/100</span>
+          <span className="block text-text-muted text-xs">/100</span>
         </div>
       </div>
     </div>
@@ -347,13 +347,13 @@ function OverallScore({ results }: { results: any }) {
 
 function AISummary({ summary }: { summary: string }) {
   return (
-    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-accent-purple/10 via-dark-700/50 to-accent-blue/10 border border-accent-purple/20">
+    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-accent-purple/10 via-bg-surface/50 to-accent-blue/10 border border-accent-purple/20">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xl">🤖</span>
         <h2 className="text-lg font-bold">AI Analysis</h2>
       </div>
       <div className="prose prose-invert prose-sm max-w-none">
-        <div className="text-dark-200 whitespace-pre-wrap leading-relaxed">
+        <div className="text-text-primary whitespace-pre-wrap leading-relaxed">
           {summary}
         </div>
       </div>
@@ -440,17 +440,17 @@ function PerformanceMetrics({ data }: { data: any }) {
         {metrics.map((metric) => (
           <div
             key={metric.label}
-            className="p-4 rounded-xl bg-dark-700/50 border border-dark-600/50"
+            className="p-4 rounded-xl bg-bg-surface border border-border-subtle"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-dark-300 text-sm">{metric.label}</span>
+              <span className="text-text-secondary text-sm">{metric.label}</span>
               <span className="font-mono font-semibold">
                 {metric.value}
-                <span className="text-dark-400 text-xs">{metric.unit}</span>
+                <span className="text-text-muted text-xs">{metric.unit}</span>
               </span>
             </div>
             {metric.isScore ? (
-              <div className="w-full h-2 rounded-full bg-dark-600">
+              <div className="w-full h-2 rounded-full bg-bg-surface">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${getScoreColor(
                     metric.value as number
@@ -459,7 +459,7 @@ function PerformanceMetrics({ data }: { data: any }) {
                 />
               </div>
             ) : metric.threshold ? (
-              <div className="w-full h-2 rounded-full bg-dark-600">
+              <div className="w-full h-2 rounded-full bg-bg-surface">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${getBarColor(
                     metric.threshold,
@@ -486,7 +486,7 @@ function SecurityHeaders({ data }: { data: any }) {
     <div className="mb-8">
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
         <span>🔒</span> Security Headers
-        <span className="text-sm font-normal text-dark-400">
+        <span className="text-sm font-normal text-text-muted">
           ({presentCount}/{headerList.length} present)
         </span>
       </h2>
@@ -505,7 +505,7 @@ function SecurityHeaders({ data }: { data: any }) {
             <div className="min-w-0 flex-1">
               <p className="font-mono text-sm font-medium truncate">{name}</p>
               {header.value && (
-                <p className="text-dark-400 text-xs truncate mt-0.5">
+                <p className="text-text-muted text-xs truncate mt-0.5">
                   {header.value}
                 </p>
               )}
@@ -514,7 +514,7 @@ function SecurityHeaders({ data }: { data: any }) {
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-6 text-sm text-dark-300">
+      <div className="mt-4 flex items-center gap-6 text-sm text-text-secondary">
         <span className="flex items-center gap-1">
           🔓 HTTPS: {data.isHttps ? 'Yes' : 'No'}
         </span>
@@ -545,7 +545,7 @@ function ConsoleErrors({ data }: { data: any }) {
     <div className="mb-8">
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
         <span>🐛</span> Console & Network Errors
-        <span className="text-sm font-normal text-dark-400">
+        <span className="text-sm font-normal text-text-muted">
           ({data.consoleErrors?.length || 0} errors,{' '}
           {data.failedRequests?.length || 0} failed requests)
         </span>
@@ -553,12 +553,12 @@ function ConsoleErrors({ data }: { data: any }) {
 
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-left p-4 rounded-xl bg-dark-700/50 border border-dark-600/50 hover:border-dark-500 transition-colors flex items-center justify-between"
+        className="w-full text-left p-4 rounded-xl bg-bg-surface border border-border-subtle hover:border-border-subtle transition-colors flex items-center justify-between"
       >
-        <span className="text-sm text-dark-300">
+        <span className="text-sm text-text-secondary">
           {expanded ? 'Hide details' : 'Show details'}
         </span>
-        <span className="text-dark-400">{expanded ? '▲' : '▼'}</span>
+        <span className="text-text-muted">{expanded ? '▲' : '▼'}</span>
       </button>
 
       {expanded && (
@@ -571,7 +571,7 @@ function ConsoleErrors({ data }: { data: any }) {
               <p className="font-mono text-xs text-accent-red">{err.type}</p>
               <p className="text-sm mt-1">{err.text}</p>
               {err.url && (
-                <p className="text-dark-500 text-xs mt-1">
+                <p className="text-text-muted text-xs mt-1">
                   {err.url}:{err.line}
                 </p>
               )}
@@ -587,7 +587,7 @@ function ConsoleErrors({ data }: { data: any }) {
               </p>
               <p className="text-sm mt-1 truncate">{req.url}</p>
               {req.failureText && (
-                <p className="text-dark-500 text-xs mt-1">{req.failureText}</p>
+                <p className="text-text-muted text-xs mt-1">{req.failureText}</p>
               )}
             </div>
           ))}
@@ -607,25 +607,25 @@ function BrokenLinks({ data }: { data: any }) {
       </h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="p-3 rounded-xl bg-dark-700/50 border border-dark-600/50 text-center">
+        <div className="p-3 rounded-xl bg-bg-surface border border-border-subtle text-center">
           <p className="text-2xl font-bold">{data.linkStats?.total || 0}</p>
-          <p className="text-dark-400 text-xs">Total Links</p>
+          <p className="text-text-muted text-xs">Total Links</p>
         </div>
         <div className="p-3 rounded-xl bg-accent-green/5 border border-accent-green/20 text-center">
           <p className="text-2xl font-bold text-accent-green">
             {data.linkStats?.working || 0}
           </p>
-          <p className="text-dark-400 text-xs">Working</p>
+          <p className="text-text-muted text-xs">Working</p>
         </div>
         <div className="p-3 rounded-xl bg-accent-red/5 border border-accent-red/20 text-center">
           <p className="text-2xl font-bold text-accent-red">
             {data.linkStats?.broken || 0}
           </p>
-          <p className="text-dark-400 text-xs">Broken</p>
+          <p className="text-text-muted text-xs">Broken</p>
         </div>
-        <div className="p-3 rounded-xl bg-dark-700/50 border border-dark-600/50 text-center">
+        <div className="p-3 rounded-xl bg-bg-surface border border-border-subtle text-center">
           <p className="text-2xl font-bold">{data.linkStats?.skipped || 0}</p>
-          <p className="text-dark-400 text-xs">Skipped</p>
+          <p className="text-text-muted text-xs">Skipped</p>
         </div>
       </div>
 
@@ -633,12 +633,12 @@ function BrokenLinks({ data }: { data: any }) {
         <>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full text-left p-4 rounded-xl bg-dark-700/50 border border-dark-600/50 hover:border-dark-500 transition-colors flex items-center justify-between"
+            className="w-full text-left p-4 rounded-xl bg-bg-surface border border-border-subtle hover:border-border-subtle transition-colors flex items-center justify-between"
           >
-            <span className="text-sm text-dark-300">
+            <span className="text-sm text-text-secondary">
               {expanded ? 'Hide broken links' : `Show ${data.brokenLinks.length} broken links`}
             </span>
-            <span className="text-dark-400">{expanded ? '▲' : '▼'}</span>
+            <span className="text-text-muted">{expanded ? '▲' : '▼'}</span>
           </button>
 
           {expanded && (
@@ -734,7 +734,7 @@ function SEOChecklist({ data }: { data: any }) {
     <div className="mb-8">
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
         <span>🔍</span> SEO Checklist
-        <span className="text-sm font-normal text-dark-400">
+        <span className="text-sm font-normal text-text-muted">
           ({passedCount}/{checks.length} passed)
         </span>
       </h2>
@@ -752,7 +752,7 @@ function SEOChecklist({ data }: { data: any }) {
             <span className="text-lg">{check.passed ? '✅' : '⚠️'}</span>
             <div className="flex-1">
               <span className="font-medium text-sm">{check.label}</span>
-              <span className="text-dark-400 text-sm ml-2">— {check.detail}</span>
+              <span className="text-text-muted text-sm ml-2">— {check.detail}</span>
             </div>
           </div>
         ))}
@@ -771,8 +771,8 @@ function Screenshots({ data }: { data: any }) {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data.desktop && (
-          <div className="rounded-xl overflow-hidden border border-dark-600/50">
-            <div className="p-2 bg-dark-700 text-center text-xs text-dark-400">
+          <div className="rounded-xl overflow-hidden border border-border-subtle">
+            <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">
               Desktop (1440×900)
             </div>
             <img
@@ -783,8 +783,8 @@ function Screenshots({ data }: { data: any }) {
           </div>
         )}
         {data.mobile && (
-          <div className="rounded-xl overflow-hidden border border-dark-600/50">
-            <div className="p-2 bg-dark-700 text-center text-xs text-dark-400">
+          <div className="rounded-xl overflow-hidden border border-border-subtle">
+            <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">
               Mobile (375×812)
             </div>
             <img
@@ -812,7 +812,7 @@ function FailedSteps({ steps }: { steps: { step: string; name: string; error: st
             className="p-4 rounded-xl bg-accent-red/5 border border-accent-red/20"
           >
             <p className="font-medium text-accent-red">{step.name}</p>
-            <p className="text-dark-400 text-sm mt-1">{step.error}</p>
+            <p className="text-text-muted text-sm mt-1">{step.error}</p>
           </div>
         ))}
       </div>

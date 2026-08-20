@@ -1,11 +1,9 @@
 export default function Loading() {
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-accent-blue to-accent-purple rounded-xl flex items-center justify-center animate-pulse">
-          <span className="text-lg font-bold">A</span>
-        </div>
-        <p className="text-dark-300 text-sm">Loading...</p>
+    <main className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-text-secondary">Loading...</p>
       </div>
     </main>
   );

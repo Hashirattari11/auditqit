@@ -2,7 +2,7 @@
 
 export default function AiSummary({ summary }: { summary: string }) {
   if (!summary) {
-    return <div className="text-dark-400 text-sm">No AI summary available</div>;
+    return <div className="text-text-muted text-sm">No AI summary available</div>;
   }
 
   // Simple markdown-like rendering
@@ -15,13 +15,13 @@ export default function AiSummary({ summary }: { summary: string }) {
         return <h4 key={index} className="text-lg font-semibold text-dark-100 mt-3 mb-1">{line.slice(3)}</h4>;
       }
       if (line.startsWith("### ")) {
-        return <h5 key={index} className="text-base font-medium text-dark-200 mt-2 mb-1">{line.slice(4)}</h5>;
+        return <h5 key={index} className="text-base font-medium text-text-primary mt-2 mb-1">{line.slice(4)}</h5>;
       }
       if (line.match(/^\d+\.\s/)) {
-        return <div key={index} className="text-dark-300 ml-4 mb-1">{line}</div>;
+        return <div key={index} className="text-text-secondary ml-4 mb-1">{line}</div>;
       }
       if (line.startsWith("- ") || line.startsWith("* ")) {
-        return <div key={index} className="text-dark-300 ml-4 mb-1">• {line.slice(2)}</div>;
+        return <div key={index} className="text-text-secondary ml-4 mb-1">• {line.slice(2)}</div>;
       }
       if (line.startsWith("**") && line.endsWith("**")) {
         return <div key={index} className="text-dark-100 font-semibold mt-2">{line.slice(2, -2)}</div>;
@@ -29,7 +29,7 @@ export default function AiSummary({ summary }: { summary: string }) {
       if (line.trim() === "") {
         return <div key={index} className="h-2" />;
       }
-      return <div key={index} className="text-dark-300">{line}</div>;
+      return <div key={index} className="text-text-secondary">{line}</div>;
     });
   };
 

@@ -72,19 +72,19 @@ export default function ReportView({ data }: { data: ReportData }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-dark-50">Audit Report</h1>
-          <p className="text-dark-400 mt-1">
+          <p className="text-text-muted mt-1">
             <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-accent-blue hover:underline">
               {data.url}
             </a>
           </p>
-          <p className="text-dark-500 text-xs mt-1">
+          <p className="text-text-muted text-xs mt-1">
             {new Date(data.createdAt).toLocaleString()}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={copyLink}
-            className="px-4 py-2 rounded-lg bg-dark-800 border border-dark-600 text-dark-200 hover:bg-dark-700 transition text-sm"
+            className="px-4 py-2 rounded-lg bg-bg border border-border-subtle text-text-primary hover:bg-bg-surface transition text-sm"
           >
             Share Report
           </button>
@@ -99,7 +99,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Overall Scores */}
       {lh && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-6">Overall Scores</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <ScoreGauge score={lh.performance} label="Performance" />
@@ -127,7 +127,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Performance Metrics */}
       {lh?.metrics && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-4">Performance Metrics</h2>
           <MetricsBar
             metrics={[
@@ -143,13 +143,13 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Security Headers */}
       {hd?.securityHeaders && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-dark-100">Security Headers</h2>
-            <div className="flex items-center gap-3 text-xs text-dark-400">
-              <span>Status: <span className="text-dark-200">{hd.statusCode}</span></span>
+            <div className="flex items-center gap-3 text-xs text-text-muted">
+              <span>Status: <span className="text-text-primary">{hd.statusCode}</span></span>
               <span>HTTPS: <span className={hd.https ? "text-accent-green" : "text-accent-red"}>{hd.https ? "Yes" : "No"}</span></span>
-              <span>TTFB: <span className="text-dark-200">{hd.responseTime}ms</span></span>
+              <span>TTFB: <span className="text-text-primary">{hd.responseTime}ms</span></span>
             </div>
           </div>
           <SecurityHeaders headers={hd.securityHeaders} />
@@ -158,7 +158,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Console Errors */}
       {pw && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-4">Console Errors</h2>
           <ErrorsList errors={pw.consoleErrors} />
         </div>
@@ -166,7 +166,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Broken Links */}
       {lc && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-4">Link Check</h2>
           <BrokenLinks links={lc.brokenLinks} total={lc.totalLinks} />
         </div>
@@ -174,7 +174,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* SEO Checklist */}
       {seo && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-4">SEO Checklist</h2>
           <SeoChecklist seo={seo} />
         </div>
@@ -182,7 +182,7 @@ export default function ReportView({ data }: { data: ReportData }) {
 
       {/* Screenshots */}
       {pw?.screenshots && (pw.screenshots.desktop || pw.screenshots.mobile) && (
-        <div className="bg-dark-900/50 border border-dark-700/50 rounded-2xl p-6">
+        <div className="bg-bg/50 border border-border-subtle/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-dark-100 mb-4">Screenshots</h2>
           <Screenshots desktop={pw.screenshots.desktop} mobile={pw.screenshots.mobile} />
         </div>

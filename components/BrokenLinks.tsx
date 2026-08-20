@@ -14,7 +14,7 @@ export default function BrokenLinks({ links, total }: { links: BrokenLink[]; tot
 
   if (!links || links.length === 0) {
     return (
-      <div className="text-sm text-dark-400">
+      <div className="text-sm text-text-muted">
         All {total} checked links are healthy.
       </div>
     );
@@ -42,10 +42,10 @@ export default function BrokenLinks({ links, total }: { links: BrokenLink[]; tot
           {links.map((link, index) => (
             <div
               key={index}
-              className="px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm"
+              className="px-3 py-2 bg-bg border border-border-subtle rounded-lg text-sm"
             >
-              <div className="font-mono text-dark-200 break-all">{link.url}</div>
-              <div className="flex gap-4 mt-1 text-xs text-dark-400">
+              <div className="font-mono text-text-primary break-all">{link.url}</div>
+              <div className="flex gap-4 mt-1 text-xs text-text-muted">
                 <span className="text-accent-red font-mono">
                   {link.status || "ERR"} {link.statusText}
                 </span>

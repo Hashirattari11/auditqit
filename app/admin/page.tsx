@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 interface AdminStats {
   totalUsers: number;
@@ -17,66 +18,61 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/stats')
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetch('/api/admin/stats').then((r) => r.json()).then(setStats).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-dark-300">Loading admin data...</div>
-      </main>
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-text-secondary">Loading admin data...</span>
+        </div>
+      </div>
     );
   }
 
   if (!stats) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-dark-300">Failed to load stats</div>
-      </main>
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <div className="text-center">
+          <p className="text-text-secondary mb-4">Failed to load stats</p>
+          <Link href="/" className="btn-primary text-sm">Go Home</Link>
+        </div>
+      </div>
     );
   }
 
   return (
     <main className="min-h-screen">
-      <header className="border-b border-dark-600/50 bg-dark-800/50">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent-blue to-accent-purple rounded-lg flex items-center justify-center text-sm font-bold">A</div>
-            <span className="text-lg font-bold">AuditIQ Admin</span>
-          </Link>
-          <Link href="/" className="text-sm text-dark-300 hover:text-white">← Back to App</Link>
-        </div>
-      </header>
+      <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">Dashboard</h1>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-32 pb-24">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Admin Dashboard</h1>
+            <p className="text-text-secondary text-sm mt-1">System overview and user management</p>
+          </div>
+          <Link href="/" className="btn-ghost text-sm">← Back to App</Link>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="p-6 rounded-2xl bg-dark-700/50 border border-dark-600/50">
-            <p className="text-sm text-dark-300 mb-1">Total Users</p>
-            <p className="text-3xl font-bold">{stats.totalUsers}</p>
-          </div>
-          <div className="p-6 rounded-2xl bg-dark-700/50 border border-dark-600/50">
-            <p className="text-sm text-dark-300 mb-1">Total Audits</p>
-            <p className="text-3xl font-bold">{stats.totalAudits}</p>
-          </div>
-          <div className="p-6 rounded-2xl bg-dark-700/50 border border-dark-600/50">
-            <p className="text-sm text-dark-300 mb-1">Today&apos;s Audits</p>
-            <p className="text-3xl font-bold">{stats.todayAudits}</p>
-          </div>
-          <div className="p-6 rounded-2xl bg-dark-700/50 border border-dark-600/50">
-            <p className="text-sm text-dark-300 mb-1">This Week</p>
-            <p className="text-3xl font-bold">{stats.weekAudits}</p>
-          </div>
+          {[
+            { label: 'Total Users', value: stats.totalUsers, color: 'text-primary' },
+            { label: 'Total Audits', value: stats.totalAudits, color: 'text-accent-cyan' },
+            { label: "Today's Audits", value: stats.todayAudits, color: 'text-accent-green' },
+            { label: 'This Week', value: stats.weekAudits, color: 'text-accent-amber' },
+          ].map((s, i) => (
+            <div key={s.label} className="card animate-fade-up" style={{ animationDelay: `${i * 100}ms`, opacity: 0, animationFillMode: 'forwards' }}>
+              <p className="text-sm text-text-secondary mb-1">{s.label}</p>
+              <p className={`text-3xl font-bold font-mono ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* System Health */}
-        <div className="mb-8 p-6 rounded-2xl bg-dark-700/50 border border-dark-600/50">
+        <div className="card mb-8">
           <h2 className="text-lg font-semibold mb-4">System Health</h2>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-2 text-sm">
@@ -87,32 +83,32 @@ export default function AdminPage() {
         </div>
 
         {/* Recent Users */}
-        <div className="rounded-2xl bg-dark-700/50 border border-dark-600/50 p-6">
+        <div className="card">
           <h2 className="text-lg font-semibold mb-4">Recent Signups</h2>
           {stats.recentUsers.length === 0 ? (
-            <p className="text-dark-400 text-sm">No users yet</p>
+            <p className="text-text-muted text-sm py-8 text-center">No users yet</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-dark-600">
-                    <th className="text-left py-2 text-dark-300 font-medium">Name</th>
-                    <th className="text-left py-2 text-dark-300 font-medium">Email</th>
-                    <th className="text-left py-2 text-dark-300 font-medium">Plan</th>
-                    <th className="text-left py-2 text-dark-300 font-medium">Joined</th>
+                  <tr className="border-b border-border-subtle">
+                    <th className="text-left py-3 px-2 text-text-secondary font-medium">Name</th>
+                    <th className="text-left py-3 px-2 text-text-secondary font-medium">Email</th>
+                    <th className="text-left py-3 px-2 text-text-secondary font-medium">Plan</th>
+                    <th className="text-left py-3 px-2 text-text-secondary font-medium">Joined</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.recentUsers.map((user) => (
-                    <tr key={user.id} className="border-b border-dark-600/30">
-                      <td className="py-3">{user.name || '—'}</td>
-                      <td className="py-3 text-dark-300">{user.email}</td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded text-xs ${user.plan === 'pro' ? 'bg-accent-purple/20 text-accent-purple' : 'bg-dark-600 text-dark-300'}`}>
+                    <tr key={user.id} className="border-b border-border-subtle/50 hover:bg-bg-surface/50 transition-colors">
+                      <td className="py-3 px-2">{user.name || '—'}</td>
+                      <td className="py-3 px-2 text-text-secondary">{user.email}</td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${user.plan === 'pro' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-bg-surface text-text-secondary border border-border-subtle'}`}>
                           {user.plan}
                         </span>
                       </td>
-                      <td className="py-3 text-dark-400">{new Date(user.created_at).toLocaleDateString()}</td>
+                      <td className="py-3 px-2 text-text-muted">{new Date(user.created_at).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>
