@@ -1,0 +1,23 @@
+// Prisma Schema for AuditIQ
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Audit {
+  id        String   @id @default(cuid())
+  url       String
+  status    String   @default("pending") // pending, running, completed, failed
+  currentStep String?
+  results   Json?    // full audit results as JSON
+  aiSummary String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
