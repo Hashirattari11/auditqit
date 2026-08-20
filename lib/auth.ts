@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { supabase } from './db';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 
 declare module 'next-auth' {
@@ -14,6 +14,14 @@ declare module 'next-auth' {
   }
 }
 
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  console.log('[AUTH] getSupabase env:', { hasUrl: !!url, hasKey: !!key });
+  if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required');
+  return createClient(url, key);
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   debug: true,
   providers: [
@@ -24,13 +32,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('[AUTH] authorize called with:', { email: credentials?.email });
+        console.log('[AUTH] authorize called:', { email: credentials?.email });
         try {
           if (!credentials?.email || !credentials?.password) {
             console.log('[AUTH] Missing credentials');
             return null;
           }
 
+          const supabase = getSupabase();
           const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -38,6 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             .single();
 
           console.log('[AUTH] Query result:', { found: !!user, error: error?.message });
+
           if (error || !user || !user.password_hash) return null;
 
           const isValid = await bcrypt.compare(
@@ -54,7 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email,
           };
         } catch (err: any) {
-          console.error('[AUTH] authorize exception:', err?.message, err?.stack);
+          console.error('[AUTH] authorize exception:', err?.message);
           return null;
         }
       },
