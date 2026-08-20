@@ -43,7 +43,7 @@ export async function generateAISummary(auditResults: Record<string, unknown>): 
       ],
       temperature: 0.7,
       max_tokens: 2000,
-    });
+    }, { timeout: 30000 });
 
     return response.choices[0]?.message?.content || 'AI summary generation failed - no response returned.';
   } catch (error) {

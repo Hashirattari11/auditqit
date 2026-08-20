@@ -57,12 +57,13 @@ async function runAuditInline(url: string, auditId: string) {
       seo: { name: 'SEO Analysis', status: 'pending' },
     };
 
-    const timeout = 60000;
+    const stepTimeout = 45000; // 45s per step
+    const totalTimeout = 180000; // 3 min total audit limit
 
     const runStep = async (key: string, fn: () => Promise<unknown>) => {
       steps[key].status = 'running';
       try {
-        const result = await withTimeout(fn(), timeout, steps[key].name);
+        const result = await withTimeout(fn(), stepTimeout, steps[key].name);
         steps[key].result = result;
         steps[key].status = 'completed';
         console.log(`  ✅ ${steps[key].name} completed`);
@@ -73,14 +74,18 @@ async function runAuditInline(url: string, auditId: string) {
       }
     };
 
-    // Run all checks in parallel
-    await Promise.allSettled([
-      runStep('lighthouse', () => runLighthouse(url)),
-      runStep('playwright', () => runPlaywright(url)),
-      runStep('headers', () => checkHeaders(url)),
-      runStep('links', () => checkLinks(html, url)),
-      runStep('seo', () => checkSEO(url, html)),
-    ]);
+    // Run all checks in parallel with total timeout
+    await withTimeout(
+      Promise.allSettled([
+        runStep('lighthouse', () => runLighthouse(url)),
+        runStep('playwright', () => runPlaywright(url)),
+        runStep('headers', () => checkHeaders(url)),
+        runStep('links', () => checkLinks(html, url)),
+        runStep('seo', () => checkSEO(url, html)),
+      ]),
+      totalTimeout,
+      'Total audit'
+    );
 
     const results = {
       url,
