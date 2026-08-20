@@ -5,6 +5,7 @@ import { checkHeaders } from './headers';
 import { checkLinks } from './linkchecker';
 import { checkSEO } from './seo';
 import { generateAISummary } from '../lib/llm';
+import { withTimeout } from '../lib/timeout';
 import axios from 'axios';
 
 interface AuditStep {
@@ -19,28 +20,16 @@ interface AuditData {
   auditId: string;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
-
 async function runAudit(data: AuditData) {
   const { url, auditId } = data;
 
   console.log(`\n🔍 Starting audit for: ${url} (${auditId})`);
 
   try {
-    // Update status to running
-    await db.updateAudit(auditId, { status: 'running', current_step: 'Initializing audit...' });
+    await db.updateAudit(auditId, { status: 'running', current_step: 'fetch' });
 
-    // Fetch HTML first (needed for SEO and link checking)
     let html = '';
     try {
-      await db.updateAudit(auditId, { current_step: 'Fetching page content...' });
       const response = await axios.get(url, {
         timeout: 15000,
         headers: { 'User-Agent': 'AuditIQ/1.0 (Web Audit Tool)' },
@@ -49,9 +38,6 @@ async function runAudit(data: AuditData) {
     } catch {
       html = '';
     }
-
-    // Run all checks in parallel with 60s timeout each
-    await db.updateAudit(auditId, { current_step: 'Running performance & security checks...' });
 
     const steps: Record<string, AuditStep> = {
       lighthouse: { name: 'Lighthouse', status: 'pending' },
@@ -65,6 +51,7 @@ async function runAudit(data: AuditData) {
 
     const runStep = async (key: string, fn: () => Promise<unknown>) => {
       steps[key].status = 'running';
+      await db.updateAudit(auditId, { current_step: key }).catch(() => {});
       try {
         const result = await withTimeout(fn(), timeout, steps[key].name);
         steps[key].result = result;
@@ -77,7 +64,6 @@ async function runAudit(data: AuditData) {
       }
     };
 
-    // Run all in parallel
     await Promise.allSettled([
       runStep('lighthouse', () => runLighthouse(url)),
       runStep('playwright', () => runPlaywright(url)),
@@ -86,7 +72,6 @@ async function runAudit(data: AuditData) {
       runStep('seo', () => checkSEO(url, html)),
     ]);
 
-    // Collect results
     const results = {
       url,
       timestamp: new Date().toISOString(),
@@ -102,13 +87,11 @@ async function runAudit(data: AuditData) {
       },
     };
 
-    // Generate AI summary
-    await db.updateAudit(auditId, { current_step: 'Generating AI analysis...' });
+    await db.updateAudit(auditId, { current_step: 'ai' });
     console.log('  🤖 Generating AI summary...');
 
     const aiSummary = await generateAISummary(results as Record<string, unknown>);
 
-    // Save results
     await db.updateAudit(auditId, {
       status: 'completed',
       results: results as any,

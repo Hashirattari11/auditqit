@@ -1,9 +1,23 @@
 import { db } from '@/lib/db';
+import { withTimeout } from '@/lib/timeout';
 
 const runningJobs = new Set<string>();
 
+/**
+ * Step keys that get written to DB current_step field.
+ * The frontend matches these to show progress.
+ */
+const STEP_KEYS = {
+  fetch: 'fetch',
+  lighthouse: 'lighthouse',
+  playwright: 'playwright',
+  headers: 'headers',
+  links: 'links',
+  seo: 'seo',
+  ai: 'ai',
+} as const;
+
 export async function runAuditInline(url: string, auditId: string) {
-  // Prevent duplicate runs
   if (runningJobs.has(auditId)) return;
   runningJobs.add(auditId);
 
@@ -16,28 +30,11 @@ export async function runAuditInline(url: string, auditId: string) {
     const { generateAISummary } = await import('@/lib/llm');
     const axios = (await import('axios')).default;
 
-    interface AuditStep {
-      name: string;
-      status: 'pending' | 'running' | 'completed' | 'failed';
-      result?: unknown;
-      error?: string;
-    }
-
-    function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-      return Promise.race([
-        promise,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-        ),
-      ]);
-    }
-
-    await db.updateAudit(auditId, { status: 'running', current_step: 'Initializing audit...' });
+    await db.updateAudit(auditId, { status: 'running', current_step: STEP_KEYS.fetch });
 
     // Fetch HTML first
     let html = '';
     try {
-      await db.updateAudit(auditId, { current_step: 'Fetching page content...' });
       const response = await axios.get(url, {
         timeout: 15000,
         headers: { 'User-Agent': 'AuditIQ/1.0 (Web Audit Tool)' },
@@ -47,14 +44,20 @@ export async function runAuditInline(url: string, auditId: string) {
       html = '';
     }
 
-    await db.updateAudit(auditId, { current_step: 'Running performance & security checks...' });
+    interface AuditStep {
+      name: string;
+      status: 'pending' | 'running' | 'completed' | 'failed';
+      result?: unknown;
+      error?: string;
+      stepKey: string;
+    }
 
     const steps: Record<string, AuditStep> = {
-      lighthouse: { name: 'Lighthouse', status: 'pending' },
-      playwright: { name: 'Playwright', status: 'pending' },
-      headers: { name: 'HTTP Headers', status: 'pending' },
-      links: { name: 'Link Checker', status: 'pending' },
-      seo: { name: 'SEO Analysis', status: 'pending' },
+      lighthouse: { name: 'Lighthouse', status: 'pending', stepKey: STEP_KEYS.lighthouse },
+      playwright: { name: 'Playwright', status: 'pending', stepKey: STEP_KEYS.playwright },
+      headers: { name: 'HTTP Headers', status: 'pending', stepKey: STEP_KEYS.headers },
+      links: { name: 'Link Checker', status: 'pending', stepKey: STEP_KEYS.links },
+      seo: { name: 'SEO Analysis', status: 'pending', stepKey: STEP_KEYS.seo },
     };
 
     const stepTimeout = 45000;
@@ -62,6 +65,8 @@ export async function runAuditInline(url: string, auditId: string) {
 
     const runStep = async (key: string, fn: () => Promise<unknown>) => {
       steps[key].status = 'running';
+      // Update current_step so the frontend shows which step is active
+      await db.updateAudit(auditId, { current_step: steps[key].stepKey }).catch(() => {});
       try {
         const result = await withTimeout(fn(), stepTimeout, steps[key].name);
         steps[key].result = result;
@@ -99,7 +104,7 @@ export async function runAuditInline(url: string, auditId: string) {
       },
     };
 
-    await db.updateAudit(auditId, { current_step: 'Generating AI analysis...' });
+    await db.updateAudit(auditId, { current_step: STEP_KEYS.ai });
     const aiSummary = await generateAISummary(results as Record<string, unknown>);
 
     await db.updateAudit(auditId, {

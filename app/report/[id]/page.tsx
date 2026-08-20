@@ -74,21 +74,25 @@ export default function ReportPage() {
     window.print();
   };
 
+  const handleRerun = async () => {
+    try {
+      await fetch(`/api/audit/${auditId}/rerun`, { method: 'POST' });
+      setReport(null);
+      setPolling(true);
+      setStatus((prev) => prev ? { ...prev, status: 'pending', currentStep: '' } : prev);
+      // The status endpoint will pick up the pending audit and run it
+      pollStatus();
+    } catch {
+      // ignore
+    }
+  };
+
   // Loading / Progress state
-  if (loading || (status && status.status === 'pending')) {
+  if (loading || (status && (status.status === 'pending' || status.status === 'running'))) {
     return (
       <ProgressView
         status={status}
         url={status?.url || ''}
-      />
-    );
-  }
-
-  if (status && status.status === 'running') {
-    return (
-      <ProgressView
-        status={status}
-        url={status.url}
       />
     );
   }
@@ -103,12 +107,20 @@ export default function ReportPage() {
             The audit for <span className="text-white">{status.url}</span> failed. 
             This might be because the website is unreachable or timed out.
           </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 rounded-xl bg-accent-blue text-white font-semibold hover:opacity-90 transition-opacity"
-          >
-            Try Another URL
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleRerun}
+              className="px-6 py-3 rounded-xl bg-accent-purple text-white font-semibold hover:opacity-90 transition-opacity"
+            >
+              Re-run Audit
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-3 rounded-xl bg-bg-surface border border-border-subtle text-text-primary font-semibold hover:opacity-90 transition-opacity"
+            >
+              Try Another URL
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -137,6 +149,12 @@ export default function ReportPage() {
             <span className="font-bold">AuditIQ</span>
           </button>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleRerun}
+              className="px-4 py-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-sm hover:bg-accent-purple/20 transition-colors"
+            >
+              Re-run Audit
+            </button>
             <button
               onClick={handleShare}
               className="px-4 py-2 rounded-lg bg-bg-surface border border-border-subtle text-sm hover:bg-bg-surface transition-colors"
@@ -217,14 +235,17 @@ export default function ReportPage() {
 
 function ProgressView({ status, url }: { status: AuditStatus | null; url: string }) {
   const steps = [
-    { key: 'pending', label: 'Queuing audit job...', icon: '⏳' },
-    { key: 'Initializing audit...', label: 'Initializing audit...', icon: '🔧' },
-    { key: 'Fetching page content...', label: 'Fetching page content...', icon: '📥' },
-    { key: 'Running performance & security checks...', label: 'Running performance & security checks...', icon: '⚡' },
-    { key: 'Generating AI analysis...', label: 'Generating AI analysis...', icon: '🤖' },
+    { key: 'fetch', label: 'Fetching page content...', icon: '📥' },
+    { key: 'headers', label: 'Checking security headers', icon: '🔒' },
+    { key: 'seo', label: 'Analyzing SEO', icon: '🔍' },
+    { key: 'links', label: 'Scanning links', icon: '🔗' },
+    { key: 'lighthouse', label: 'Running performance audit', icon: '⚡' },
+    { key: 'playwright', label: 'Checking for errors', icon: '🐛' },
+    { key: 'ai', label: 'Generating AI analysis', icon: '🤖' },
   ];
 
-  const currentStepIndex = steps.findIndex((s) => s.key === status?.currentStep);
+  const currentStepKey = status?.currentStep || '';
+  const currentIndex = steps.findIndex((s) => s.key === currentStepKey);
 
   return (
     <main className="min-h-screen flex items-center justify-center">
@@ -241,8 +262,8 @@ function ProgressView({ status, url }: { status: AuditStatus | null; url: string
 
         <div className="space-y-3 text-left max-w-sm mx-auto">
           {steps.map((step, index) => {
-            const isActive = index === currentStepIndex;
-            const isDone = index < currentStepIndex;
+            const isActive = index === currentIndex;
+            const isDone = currentIndex >= 0 && index < currentIndex;
 
             return (
               <div

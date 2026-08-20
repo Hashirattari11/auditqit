@@ -104,6 +104,17 @@ export default function GitHubReportPage() {
     window.print();
   };
 
+  const handleRerun = async () => {
+    try {
+      await fetch(`/api/github-audit/${auditId}/rerun`, { method: 'POST' });
+      setReport(null);
+      setPolling(true);
+      setStatus((prev) => prev ? { ...prev, status: 'pending', currentStep: '' } : prev);
+    } catch {
+      // ignore
+    }
+  };
+
   // Loading state
   if (loading || (status && (status.status === 'pending' || status.status === 'running'))) {
     return (
@@ -135,12 +146,20 @@ export default function GitHubReportPage() {
           <p className="text-text-secondary mb-6">
             Failed to audit {status.owner}/{status.repo}
           </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 rounded-xl bg-accent-blue text-white font-medium hover:opacity-90"
-          >
-            Try Another Repo
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleRerun}
+              className="px-6 py-3 rounded-xl bg-accent-purple text-white font-medium hover:opacity-90"
+            >
+              Re-run Audit
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-3 rounded-xl bg-bg-surface border border-border-subtle text-text-primary font-medium hover:opacity-90"
+            >
+              Try Another Repo
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -184,6 +203,9 @@ export default function GitHubReportPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={handleRerun} className="px-3 py-1.5 text-sm rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple hover:bg-accent-purple/20">
+              Re-run
+            </button>
             <button onClick={handleShare} className="px-3 py-1.5 text-sm rounded-lg bg-bg-surface text-text-primary hover:bg-bg-surface">
               Share
             </button>

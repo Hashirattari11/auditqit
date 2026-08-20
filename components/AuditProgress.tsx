@@ -9,9 +9,14 @@ interface AuditStatus {
   currentStep: string | null;
 }
 
-export default function AuditProgress({ auditId }: { auditId: string }) {
+export default function AuditProgress({
+  auditId,
+  onRerun,
+}: {
+  auditId: string;
+  onRerun?: () => void;
+}) {
   const [audit, setAudit] = useState<AuditStatus | null>(null);
-  const [pollCount, setPollCount] = useState(0);
 
   useEffect(() => {
     const pollInterval = setInterval(async () => {
@@ -19,7 +24,6 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
         const response = await fetch(`/api/audit/${auditId}/status`);
         const data = await response.json();
         setAudit(data);
-        setPollCount((c) => c + 1);
 
         if (data.status === "completed" || data.status === "failed") {
           clearInterval(pollInterval);
@@ -33,30 +37,17 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
   }, [auditId]);
 
   const steps = [
-    { label: "Running Lighthouse audit", icon: "LH" },
-    { label: "Scanning for errors", icon: "PW" },
-    { label: "Checking security headers", icon: "SH" },
-    { label: "Scanning links", icon: "LC" },
-    { label: "Analyzing SEO", icon: "SEO" },
-    { label: "Generating AI report", icon: "AI" },
+    { key: "fetch", label: "Fetching page content", icon: "📥" },
+    { key: "headers", label: "Checking security headers", icon: "🔒" },
+    { key: "seo", label: "Analyzing SEO", icon: "🔍" },
+    { key: "links", label: "Scanning links", icon: "🔗" },
+    { key: "lighthouse", label: "Running performance audit", icon: "⚡" },
+    { key: "playwright", label: "Checking for errors", icon: "🐛" },
+    { key: "ai", label: "Generating AI report", icon: "🤖" },
   ];
 
-  // Determine which step we're on based on currentStep text
-  const currentStepText = audit?.currentStep || "";
-  const getStepStatus = (stepLabel: string) => {
-    if (!currentStepText) return "pending";
-    if (currentStepText.toLowerCase().includes(stepLabel.toLowerCase().split(" ")[0])) {
-      return "running";
-    }
-    // Check if already passed based on order
-    const stepIndex = steps.findIndex((s) => s.label === stepLabel);
-    const currentIndex = steps.findIndex((s) =>
-      currentStepText.toLowerCase().includes(s.label.toLowerCase().split(" ")[0])
-    );
-    if (currentIndex >= 0 && stepIndex < currentIndex) return "done";
-    if (currentIndex >= 0 && stepIndex > currentIndex) return "pending";
-    return "pending";
-  };
+  const currentStepKey = audit?.currentStep || "";
+  const currentIndex = steps.findIndex((s) => s.key === currentStepKey);
 
   if (!audit) {
     return (
@@ -80,7 +71,15 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
     return (
       <div className="text-center">
         <div className="text-2xl font-bold text-accent-red mb-2">Audit Failed</div>
-        <div className="text-text-muted">{currentStepText || "An unexpected error occurred."}</div>
+        <div className="text-text-muted">{currentStepKey || "An unexpected error occurred."}</div>
+        {onRerun && (
+          <button
+            onClick={onRerun}
+            className="mt-4 px-6 py-3 rounded-xl bg-accent-purple text-white font-semibold hover:opacity-90 transition-opacity"
+          >
+            Re-run Audit
+          </button>
+        )}
       </div>
     );
   }
@@ -95,58 +94,56 @@ export default function AuditProgress({ auditId }: { auditId: string }) {
 
       <div className="space-y-2">
         {steps.map((step, index) => {
-          const status = getStepStatus(step.label);
+          const isActive = index === currentIndex;
+          const isDone = currentIndex >= 0 && index < currentIndex;
+
           return (
             <div
-              key={index}
+              key={step.key}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
-                status === "running"
+                isActive
                   ? "bg-accent-blue/10 border border-accent-blue/20"
-                  : status === "done"
+                  : isDone
                   ? "bg-accent-green/5 border border-accent-green/10"
                   : "bg-bg/50 border border-transparent"
               }`}
             >
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                  status === "running"
+                  isActive
                     ? "bg-accent-blue text-white animate-pulse"
-                    : status === "done"
+                    : isDone
                     ? "bg-accent-green text-white"
                     : "bg-bg-surface text-text-muted"
                 }`}
               >
-                {status === "done" ? (
+                {isDone ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
-                ) : status === "running" ? (
+                ) : isActive ? (
                   <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                 ) : (
-                  step.icon
+                  <span>{step.icon}</span>
                 )}
               </div>
               <span
                 className={`text-sm ${
-                  status === "running"
-                    ? "text-dark-100 font-medium"
-                    : status === "done"
+                  isActive
+                    ? "text-white font-medium"
+                    : isDone
                     ? "text-text-muted"
                     : "text-text-muted"
                 }`}
               >
                 {step.label}
-                {status === "running" && (
+                {isActive && (
                   <span className="ml-2 text-accent-blue animate-pulse">running...</span>
                 )}
               </span>
             </div>
           );
         })}
-      </div>
-
-      <div className="text-center text-text-muted text-xs mt-4">
-        Poll #{pollCount} — Updates every 2 seconds
       </div>
     </div>
   );

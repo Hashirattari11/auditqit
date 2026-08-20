@@ -10,11 +10,11 @@ export async function runGitHubAuditInline(repoUrl: string, auditId: string) {
     const { runGitHubAudit } = await import('@/workers/github-audit');
     const { generateGitHubAISummary } = await import('@/lib/llm');
 
-    await db.updateRepoAudit(auditId, { status: 'running', current_step: 'Fetching repository...' });
+    await db.updateRepoAudit(auditId, { status: 'running', current_step: 'scan' });
 
     const results = await runGitHubAudit(repoUrl);
 
-    await db.updateRepoAudit(auditId, { current_step: 'Generating AI analysis...' });
+    await db.updateRepoAudit(auditId, { current_step: 'ai' });
     const aiSummary = await generateGitHubAISummary(results as unknown as Record<string, unknown>);
 
     await db.updateRepoAudit(auditId, {
