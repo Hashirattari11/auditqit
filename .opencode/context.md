@@ -1,27 +1,33 @@
 # Project Context
 
-## CRITICAL: Fixing Supabase lazy init for Vercel build
-- Error: `supabaseUrl is required` during `next build` "Collecting page data"
-- Fix needed: `lib/db.ts` line 10-11 — `createClient()` runs at module load, env vars not available at build time
-- Solution: Make `supabase` export a lazy getter function
+## Status: ENV VARS SET ON VERCEL, REDPLOY TRIGGERED
+
+## Deployed URL
+- https://auditqit-0-eight.vercel.app
 
 ## Repo
-- GitHub: https://github.com/Hashirattari11/auditqit  
-- Latest commit: `9c66117`
-- Local: D:\auditiq, git clean
+- GitHub: https://github.com/Hashirattari11/auditqit
+- 5 commits, latest: `1f74040` (empty commit to trigger redeploy)
 
-## Vercel Build Errors Fixed So Far
-1. Missing deps (commit 0a9215f): @sparticuz/chromium, puppeteer-core, resend
-2. Type errors (commit 9c66117): PDF chromium types, Buffer.from, Stripe lazy init, rpc().catch(), spread types
-3. CURRENT: supabaseUrl required — db.ts module-level createClient
+## What Was Done This Session
+1. All 8 env vars set via Vercel API (production + preview + development):
+   - SUPABASE_URL, SUPABASE_ANON_KEY, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+   - NEXTAUTH_SECRET, NEXTAUTH_URL, NEXT_PUBLIC_APP_URL
+2. Empty commit pushed to trigger fresh deploy with env vars
 
-## Fixes Already Applied to local files (not yet committed)
-- `next.config.js` — standalone output, all externals listed
-- `.npmrc` — playwright_skip_browser_download=true
-- `package.json` — build script: `prisma generate && next build`
-- `vercel.json` — buildCommand with prisma generate
+## Vercel
+- User: hashirattari11
+- Project: auditqit-0
 
-## Still Need
-- Fix lib/db.ts lazy supabase client
-- Commit all fixes and push
-- Verify build passes locally
+## Previous Build Fixes (all committed)
+- Lazy Supabase client (proxy pattern) — lib/db.ts
+- Stripe lazy init (require inside handlers)
+- Standalone output, externals — next.config.js
+- Skip playwright browser download — .npmrc
+- Prisma generate in build — package.json
+- Type fixes: Buffer.from, rpc try/catch, spread as any
+
+## Next Steps
+1. Verify deploy works at https://auditqit-0-eight.vercel.app
+2. Test: homepage loads, signup/login work, audit runs
+3. If errors remain, check Vercel function logs

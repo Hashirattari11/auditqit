@@ -1,21 +1,26 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 const protectedRoutes = ['/dashboard', '/api/stripe'];
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {
-    if (!req.auth) {
-      const loginUrl = new URL('/auth/login', req.url);
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (!token) {
+      const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ['/dashboard/:path*', '/api/stripe/:path*'],
