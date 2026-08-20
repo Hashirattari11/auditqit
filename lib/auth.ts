@@ -15,15 +15,13 @@ declare module 'next-auth' {
 }
 
 function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  console.log('[AUTH] getSupabase env:', { hasUrl: !!url, hasKey: !!key });
-  if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required');
+  const url = process.env.SUPABASE_URL!;
+  const key = process.env.SUPABASE_ANON_KEY!;
   return createClient(url, key);
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  debug: true,
+  trustHost: true,
   providers: [
     Credentials({
       name: 'credentials',
@@ -32,8 +30,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        // HARDcoded test - bypass all logic
-        return { id: 'test-id-123', name: 'Test', email: 'test@auditiq.dev' };
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const supabase = getSupabase();
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', credentials.email as string)
+          .single();
+
+        if (error || !user || !user.password_hash) return null;
+
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.password_hash
+        );
+
+        if (!isValid) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        };
       },
     }),
   ],
