@@ -219,8 +219,8 @@ export const db = {
       .limit(limit);
 
     const all = [
-      ...(webAudits || []).map((a) => ({ ...a, type: 'web' })),
-      ...(repoAudits || []).map((a) => ({ ...a, type: 'github' })),
+      ...((webAudits as any[]) || []).map((a) => ({ ...a, type: 'web' })),
+      ...((repoAudits as any[]) || []).map((a) => ({ ...a, type: 'github' })),
     ];
 
     return all.sort(

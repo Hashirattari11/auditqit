@@ -12,16 +12,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
 
-    // Create table if not exists
-    await supabase.rpc('exec_sql', {
-      query: `CREATE TABLE IF NOT EXISTS public.waitlist (
-        id SERIAL PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT now()
-      );`,
-    }).catch(() => {
+    // Create table if not exists — ignore errors (table may already exist)
+    try {
+      await supabase.rpc('exec_sql', {
+        query: `CREATE TABLE IF NOT EXISTS public.waitlist (
+          id SERIAL PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT now()
+        );`,
+      });
+    } catch {
       // Table might already exist, ignore
-    });
+    }
 
     const { error } = await supabase
       .from('waitlist')

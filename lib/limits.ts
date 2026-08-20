@@ -117,7 +117,9 @@ export async function checkAnonymousUsage(ip: string): Promise<UsageCheck> {
 
 // Increment user audit count after starting an audit
 export async function incrementUserAuditCount(userId: string): Promise<void> {
-  await supabase.rpc('increment_audits', { uid: userId }).catch(async () => {
+  try {
+    await supabase.rpc('increment_audits', { uid: userId });
+  } catch {
     // Fallback if RPC doesn't exist - manual increment
     const { data } = await supabase
       .from('users')
@@ -131,7 +133,7 @@ export async function incrementUserAuditCount(userId: string): Promise<void> {
         .update({ audits_this_month: (data.audits_this_month || 0) + 1 })
         .eq('id', userId);
     }
-  });
+  }
 }
 
 // Get user IP from request headers

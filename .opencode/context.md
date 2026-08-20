@@ -1,34 +1,37 @@
 # Project Context
 
-## Status: ALL 4 PHASES COMPLETE ✅ — Pushing to GitHub now
+## Status: Vercel build failing — needs fix
 
-## Current Action
-- Git repo NOT yet initialized (`D:\auditiq/.git` does NOT exist)
-- `.gitignore` exists
-- git v2.53.0 and gh v2.97.0 available
-- Was about to: `git init` → `git add .` → `git commit` → `gh repo create auditiq` → `git push`
+## Problem
+Vercel is building commit `decc8be` (first commit, missing deps) instead of `0a9215f` (latest with deps). But `git log origin/main` shows `0a9215f` is on GitHub. So either Vercel is caching, or the user triggered deploy from an old commit.
 
-## What's Built
-- **Phase 1**: Core Audit Engine (Lighthouse, Playwright, headers, SEO, links, GitHub code review)
-- **Phase 2**: AI Integration (NVIDIA Nemotron 49B, 2800+ char summaries)
-- **Phase 3**: Auth (NextAuth v5), Limits (anon 2/day, free 5/mo), Stripe routes
-- **Phase 4**: PDF reports, Toast/skeletons, 404/500, admin dashboard, launch/waitlist, SEO, sitemap, deployment config
+## Current State
+- Repo: https://github.com/Hashirattari11/auditqit
+- Commits on main: `0a9215f` (latest, has deps) → `decc8be` (initial)
+- Local: D:\auditiq, git synced with origin/main
+- Dev server was running on localhost:3000
 
-## All Routes Verified
-- `/`, `/pricing`, `/auth/login`, `/auth/signup`, `/dashboard`(307), `/admin`, `/launch`
-- `/api/stats`, `/api/admin/stats` — all 200 OK
-- Zero compilation errors
+## Last Action
+- Verified git log shows `0a9215f` is latest on both local and remote
+- User said Vercel still shows old commit in build log
 
-## Remaining (non-blocking)
-- STRIPE_SECRET_KEY, RESEND_API_KEY, GOOGLE_CLIENT_ID/SECRET empty
-- `waitlist` table may need creation in Supabase
-- Dev server running on localhost:3000
+## Possible Causes
+1. Vercel auto-deploy triggered from old commit before push completed
+2. Vercel build cache showing old result
+3. User needs to trigger a new deployment from Vercel dashboard
 
-## Key Files
-- `D:\auditiq\.env` — env vars
-- `D:\auditiq\lib\db.ts` — Supabase singleton (never fresh createClient)
-- `D:\auditiq\lib\auth.ts` — NextAuth v5
-- `D:\auditiq\lib\llm.ts` — Nemotron client
-- `D:\auditiq\lib\email.ts` — Resend sender
-- `D:\auditiq\DEPLOYMENT.md` — deployment guide
-- `D:\auditiq\vercel.json` — Vercel config
+## Fix Options
+1. Tell user to click "Redeploy" in Vercel dashboard on the latest deployment
+2. Make a small empty commit and push to trigger fresh build
+3. Check if `next.config.js` has wrong `serverComponentsExternalPackages` config — `@sparticuz/chromium` and `resend` should NOT be in external packages if they need to be bundled
+
+## Also Need to Check
+- `next.config.js` may be misconfigured — external packages list may cause issues
+- PDF routes use dynamic import which is good, but webpack still resolves at build time
+- Need to verify all pages compile after deps added
+
+## Next Steps
+1. Make a small commit to force Vercel rebuild from latest
+2. Also fix next.config.js if needed
+3. Verify build works locally first: `npm run build`
+4. Tell user to redeploy

@@ -25,9 +25,9 @@ export async function GET(
     const chromium = await import('@sparticuz/chromium');
 
     const browser = await puppeteer.default.launch({
-      args: chromium.default.args,
-      defaultViewport: chromium.default.defaultViewport,
-      executablePath: await chromium.default.executablePath(),
+      args: (chromium as any).args || [],
+      defaultViewport: { width: 1280, height: 720 },
+      executablePath: await (chromium as any).executablePath(),
       headless: true,
     });
 
@@ -60,7 +60,7 @@ export async function GET(
 
     await browser.close();
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(Buffer.from(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="code-review-${id}.pdf"`,

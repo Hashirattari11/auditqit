@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil' as Stripe.LatestApiVersion,
-});
+function getStripe() {
+  const Stripe = require('stripe').default;
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2025-08-27.basil',
+  });
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -13,7 +15,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login?callbackUrl=/pricing', request.url));
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.redirect(new URL('/pricing?error=stripe_not_configured', request.url));
+  }
+
   try {
+    const stripe = getStripe();
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
