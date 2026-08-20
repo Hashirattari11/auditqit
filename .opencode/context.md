@@ -17,43 +17,43 @@
 - Auth fix (3 bugs: AUTH_SECRET, trustHost, cookie-based middleware)
 - All deployed and verified on Vercel: https://auditqit-0-eight.vercel.app
 
-## UI/UX Overhaul (M7-M12 In Progress)
+## UI/UX Overhaul (M7-M12) — COMPLETE ✅
+- Committed: c199e40 (34 files changed, 1532 insertions, 1192 deletions)
+- All old dark-* classes replaced with new design tokens
 
-### ✅ Completed (Foundation)
-- `tailwind.config.js` — New design tokens (bg, surface, border, primary, accent, text colors)
-- `app/globals.css` — Full design system (CSS variables, animations, utilities, skeleton, glass, card-hover, btn-primary/secondary/ghost/danger, score badges, hero blobs, grid-pattern, accordion, reveal, print, reduced-motion)
-- `app/layout.tsx` — Inter (body) + Syne (display) + JetBrains Mono (code) fonts, metadata/SEO, Providers + ToastProvider
-- `components/Navbar.tsx` — Fixed glass navbar with scroll effect, mobile hamburger, session-aware
-- `components/Footer.tsx` — 4-column footer with product/resources/company/legal
+### New Design System
+- **Tailwind tokens**: bg, surface, border-subtle, primary, accent-cyan/green/amber/red, text-primary/secondary/muted
+- **Fonts**: Inter (body), Syne (display), JetBrains Mono (code)
+- **Animations**: fadeUp, fadeIn, slideRight, scaleIn, float, pulseGlow, spinSlow, shimmer, slideInRight, gradient, blobMove, shake
+- **Components**: btn-primary/secondary/ghost/danger, card, card-hover, glass, input, score badges, skeleton, hero blobs, grid-pattern, accordion, reveal, shake
 
-### ✅ Completed (Pages)
-- `app/page.tsx` — Full landing page rewrite: hero with 3 animated blobs, tab selector, URL input, floating mock cards, stats bar with counting animation, 6 feature cards, 3-step how-it-works, live demo, comparison table, pricing (Free/Pro), testimonials, FAQ accordion, CTA, imports Navbar+Footer
-- `app/auth/login/page.tsx` — Split layout: left animated panel with stats, right form panel, error handling, loading spinner
-- `app/auth/signup/page.tsx` — Split layout: left animated panel with features, right form with password strength meter (5 bars), confirm password
-- `app/dashboard/page.tsx` — Fixed sidebar + tabs layout (Overview, Website Audits, GitHub Audits, Settings), mobile hamburger, user section, plan banner, danger zone
+### Files Rewritten (full redesign)
+- `tailwind.config.js` — All design tokens + animations
+- `app/globals.css` — Full design system
+- `app/layout.tsx` — 3 fonts + metadata
+- `app/page.tsx` — Landing page (hero, stats, features, how-it-works, live demo, comparison, pricing, testimonials, FAQ, CTA)
+- `app/auth/login/page.tsx` — Split layout
+- `app/auth/signup/page.tsx` — Split layout + password strength
+- `app/dashboard/page.tsx` — Sidebar + tabs
+- `app/pricing/page.tsx` — New pricing with Navbar/Footer
+- `app/launch/page.tsx` — New launch page
+- `app/admin/page.tsx` — New admin dashboard
+- `app/not-found.tsx`, `app/error.tsx`, `app/loading.tsx` — Created
+- `components/Navbar.tsx` — New glass navbar
+- `components/Footer.tsx` — New 4-column footer
+- `components/UpgradeModal.tsx` — New tokens
+- `components/Toast.tsx` — New tokens
+- `components/LoadingSkeleton.tsx` — New tokens
 
-### ⏳ Pending (Remaining pages to redesign)
-- `app/pricing/page.tsx` — Needs redesign (currently 126 lines, uses old dark-* classes)
-- `app/launch/page.tsx` — Needs redesign (114 lines)
-- `app/admin/page.tsx` — Needs redesign (126 lines)
-- `app/report/[id]/page.tsx` — Check if needs update
-- `app/github-report/[id]/page.tsx` — Check if needs update
-- `app/not-found.tsx` — Needs creation/redesign
-- `app/error.tsx` — Needs creation/redesign
-- `app/loading.tsx` — Needs creation
-- `components/UpgradeModal.tsx` — May need update for new design tokens
-- `components/LoadingSkeleton.tsx` — May need update
-- Other components (AuditForm, ReportView, etc.) — May need update
+### Files Updated (batch sed_replace)
+- All 12 components (AiSummary, AuditForm, AuditProgress, BrokenLinks, ErrorsList, MetricsBar, RecentAudits, ReportView, ScoreGauge, Screenshots, SecurityHeaders, SeoChecklist)
+- Both report pages (report/[id], github-report/[id])
 
-### Build Status
-- npm run build times out locally (slow machine) — Vercel build works
-- Previous build verification task (task_44ebde8c) completed
-- Landing page worker (task_34c1cc3d) completed but didn't write file — wrote it manually
+## Current Status
+- Pushed to Vercel: commit c199e40
+- Build waiting: background job job_3e2bb67d
+- Zero old dark-* classes remaining in codebase
 
-## Next Steps
-1. Update pricing, launch, admin pages with new design system
-2. Update report and github-report pages
-3. Create 404, 500, loading pages
-4. Update UpgradeModal and other components for new tokens
-5. Commit + push to Vercel
-6. Final verification via Reviewer
+## Pending
+- Verify Vercel deployment succeeds and pages load correctly
+- Optional: update report pages further for richer design (currently functional with new tokens)

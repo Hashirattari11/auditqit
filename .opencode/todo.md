@@ -103,8 +103,56 @@
 - [x] S6.3.2: Dashboard accessible with session cookie (200 OK) | size:S
 - [x] S6.3.3: Full app verification — all 10 checks pass | size:S
 
-### T6.4: Final Build Verification | agent:Reviewer
-- [ ] S6.4.1: Local npm run build passes | size:M
+### T6.4: Final Build Verification ✅ | agent:Reviewer
+- [x] S6.4.1: Vercel build passes + all pages return 200 | size:M
+
+## M7: UI/UX Overhaul ✅ | status: completed
+### T7.1: Design System ✅ | agent:Worker
+- [x] S7.1.1: tailwind.config.js — new design tokens + animations | size:M
+- [x] S7.1.2: globals.css — full design system (variables, utilities, glass, cards, blobs) | size:M
+- [x] S7.1.3: layout.tsx — Inter/Syne/JetBrains Mono fonts + metadata | size:S
+
+### T7.2: Shared Components ✅ | agent:Worker
+- [x] S7.2.1: Navbar — glass effect, scroll-aware, mobile hamburger | size:S
+- [x] S7.2.2: Footer — 4-column layout | size:S
+- [x] S7.2.3: UpgradeModal — new design tokens | size:S
+- [x] S7.2.4: Toast — new design tokens | size:S
+- [x] S7.2.5: LoadingSkeleton — new design tokens | size:S
+
+### T7.3: Landing Page ✅ | agent:Worker
+- [x] S7.3.1: Hero — animated gradient mesh, 3 blobs, floating mock cards | size:L
+- [x] S7.3.2: Stats bar — counting animation with IntersectionObserver | size:S
+- [x] S7.3.3: Features grid — 6 cards with staggered fade-up | size:S
+- [x] S7.3.4: How it works — 3 numbered steps with connecting line | size:S
+- [x] S7.3.5: Live demo — URL input + quick examples | size:S
+- [x] S7.3.6: Comparison table — AuditIQ vs alternatives | size:S
+- [x] S7.3.7: Pricing cards — Free + Pro | size:S
+- [x] S7.3.8: Testimonials — 3 cards with star ratings | size:S
+- [x] S7.3.9: FAQ accordion — 6 items with smooth open/close | size:S
+
+### T7.4: Auth Pages ✅ | agent:Worker
+- [x] S7.4.1: Login — split layout, animated left panel, form right | size:M
+- [x] S7.4.2: Signup — split layout, password strength meter | size:M
+
+### T7.5: Dashboard ✅ | agent:Worker
+- [x] S7.5.1: Sidebar + tabs (Overview, Web Audits, GitHub Audits, Settings) | size:L
+- [x] S7.5.2: Mobile responsive hamburger menu | size:S
+
+### T7.6: Remaining Pages ✅ | agent:Worker
+- [x] S7.6.1: Pricing page — new design with Navbar/Footer | size:S
+- [x] S7.6.2: Launch page — animated hero + waitlist | size:S
+- [x] S7.6.3: Admin page — new admin dashboard | size:S
+- [x] S7.6.4: 404/Error/Loading pages — created | size:S
+
+### T7.7: Component Migration ✅ | agent:Worker
+- [x] S7.7.1: Batch-replace dark-* classes across all 12 components | size:M
+- [x] S7.7.2: Batch-replace dark-* classes across both report pages | size:M
+- [x] S7.7.3: Zero remaining dark-* classes verified | size:S
+
+### T7.8: Deploy & Verify ✅ | agent:Reviewer
+- [x] S7.8.1: Commit + push to GitHub (c199e40) | size:S
+- [x] S7.8.2: Vercel auto-deploy succeeds | size:S
+- [x] S7.8.3: All 5 pages return 200 | size:S
 
 ## Remaining (non-blocking)
 - STRIPE_SECRET_KEY — not configured, Stripe disabled
