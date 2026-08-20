@@ -34,7 +34,6 @@ export async function runPlaywright(url: string): Promise<PlaywrightResult> {
       const chromium = await import('@sparticuz/chromium');
       browser = await puppeteer.default.launch({
         args: chromium.default.args,
-        defaultViewport: chromium.default.defaultViewport,
         executablePath: await chromium.default.executablePath(),
         headless: true,
       });
