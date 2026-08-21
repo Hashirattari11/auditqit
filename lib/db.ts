@@ -114,7 +114,14 @@ export const db = {
       console.error('claimAudit RPC error:', error);
       return false;
     }
-    return data === true;
+    console.log('claimAudit RPC data:', JSON.stringify(data), 'type:', typeof data);
+    // Supabase client may return: true, "true", [true], [{claim_audit:true}]
+    if (data === true || data === 'true') return true;
+    if (Array.isArray(data) && data.length > 0) {
+      const val = data[0]?.claim_audit ?? data[0];
+      return val === true || val === 'true';
+    }
+    return false;
   },
 
   async getRecentAudits(limit = 5, userId?: string): Promise<Audit[]> {
