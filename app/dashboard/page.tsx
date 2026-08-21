@@ -108,13 +108,13 @@ export default function DashboardPage() {
         </header>
 
         <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-          {tab === 'overview' && <OverviewTab user={session.user} />}
+          {tab === 'overview' && <OverviewTab user={session.user} isAdmin={isAdmin} />}
           {tab === 'web' && <WebAuditsTab />}
           {tab === 'github' && <GitHubAuditsTab />}
           {tab === 'monitors' && <MonitorsTab />}
           {tab === 'team' && <TeamTab />}
           {tab === 'api-keys' && <ApiKeysTab />}
-          {tab === 'settings' && <SettingsTab user={session.user} />}
+          {tab === 'settings' && <SettingsTab user={session.user} isAdmin={isAdmin} />}
           {tab === 'admin' && isAdmin && <AdminTab />}
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function DashboardPage() {
 }
 
 /* ── Overview Tab ─────────────────────────────────────── */
-function OverviewTab({ user }: { user: { name?: string | null; email?: string | null } }) {
+function OverviewTab({ user, isAdmin }: { user: { name?: string | null; email?: string | null }; isAdmin?: boolean }) {
   const [audits, setAudits] = useState<any[]>([]);
   const [repoAudits, setRepoAudits] = useState<any[]>([]);
 
@@ -149,7 +149,7 @@ function OverviewTab({ user }: { user: { name?: string | null; email?: string | 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Total Audits', value: totalAudits.toString(), color: 'text-primary' },
-          { label: 'This Month', value: `${totalAudits} / 5`, color: 'text-accent-cyan' },
+          { label: 'This Month', value: isAdmin ? `${totalAudits} / ∞` : `${totalAudits} / 5`, color: 'text-accent-cyan' },
           { label: 'Recent', value: allRecent.length.toString(), color: 'text-accent-amber' },
         ].map((s) => (
           <div key={s.label} className="card">
@@ -160,13 +160,13 @@ function OverviewTab({ user }: { user: { name?: string | null; email?: string | 
       </div>
 
       {/* Plan Banner */}
-      <div className="card bg-gradient-to-r from-primary/5 to-accent-cyan/5 border-primary/20">
+      <div className={`card bg-gradient-to-r ${isAdmin ? 'from-accent-green/5 to-accent-cyan/5 border-accent-green/20' : 'from-primary/5 to-accent-cyan/5 border-primary/20'}`}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h3 className="font-semibold mb-1">Free Plan</h3>
-            <p className="text-sm text-text-secondary">5 web audits and 5 GitHub audits per month. Upgrade for unlimited.</p>
+            <h3 className="font-semibold mb-1">{isAdmin ? 'Admin Plan' : 'Free Plan'}</h3>
+            <p className="text-sm text-text-secondary">{isAdmin ? 'Unlimited audits, no rate limits, full platform access.' : '5 web audits and 5 GitHub audits per month. Upgrade for unlimited.'}</p>
           </div>
-          <Link href="/pricing" className="btn-primary text-sm whitespace-nowrap">View Plans</Link>
+          {!isAdmin && <Link href="/pricing" className="btn-primary text-sm whitespace-nowrap">View Plans</Link>}
         </div>
       </div>
 
@@ -330,7 +330,7 @@ function GitHubAuditsTab() {
 }
 
 /* ── Settings Tab ─────────────────────────────────────── */
-function SettingsTab({ user }: { user: { name?: string | null; email?: string | null } }) {
+function SettingsTab({ user, isAdmin }: { user: { name?: string | null; email?: string | null }; isAdmin?: boolean }) {
   return (
     <div className="space-y-8 animate-fade-up">
       <div>
@@ -356,10 +356,10 @@ function SettingsTab({ user }: { user: { name?: string | null; email?: string | 
         <h3 className="font-semibold mb-4">Subscription</h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-text-secondary">Current Plan: <span className="text-text-primary font-medium">Free</span></p>
-            <p className="text-xs text-text-muted mt-1">5 web audits and 5 GitHub audits per month</p>
+            <p className="text-sm text-text-secondary">Current Plan: <span className={`font-medium ${isAdmin ? 'text-accent-green' : 'text-text-primary'}`}>{isAdmin ? 'Admin (Unlimited)' : 'Free'}</span></p>
+            <p className="text-xs text-text-muted mt-1">{isAdmin ? 'No limits, full platform access' : '5 web audits and 5 GitHub audits per month'}</p>
           </div>
-          <Link href="/pricing" className="btn-primary text-sm">Upgrade</Link>
+          {!isAdmin && <Link href="/pricing" className="btn-primary text-sm">Upgrade</Link>}
         </div>
       </div>
 
@@ -475,30 +475,91 @@ function AdminTab() {
       {/* Users */}
       {tab === 'users' && (
         <div className="space-y-4">
-          <h3 className="font-semibold">Recent Users ({stats?.recentUsers?.length || 0})</h3>
+          <h3 className="font-semibold">All Users ({stats?.recentUsers?.length || 0})</h3>
           {(!stats?.recentUsers || stats.recentUsers.length === 0) ? (
             <div className="card text-center py-12 text-text-muted">
               <p className="text-3xl mb-3">👥</p>
               <p>No users found</p>
             </div>
           ) : (
-            <div className="card">
-              <div className="space-y-2">
-                {stats.recentUsers.map((u: any) => (
-                  <div key={u.id} className="flex items-center justify-between py-3 px-2 border-b border-border-subtle/50 last:border-0">
+            <div className="space-y-3">
+              {stats.recentUsers.map((u: any) => (
+                <div key={u.id} className="card">
+                  <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{u.name || 'Unnamed'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{u.name || 'Unnamed'}</p>
+                        {u.email === ADMIN_EMAIL && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-semibold">ADMIN</span>
+                        )}
+                      </div>
                       <p className="text-xs text-text-muted">{u.email}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${u.plan === 'pro' ? 'bg-accent-purple/10 text-accent-purple' : u.plan === 'team' ? 'bg-accent-blue/10 text-accent-blue' : 'bg-bg-surface text-text-secondary'}`}>
+                          {u.plan || 'free'}
+                        </span>
+                        <span className="text-xs text-text-muted">
+                          {u.audits_this_month || 0} audits this month
+                        </span>
+                        <span className="text-xs text-text-muted">
+                          Joined {new Date(u.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.plan === 'pro' ? 'bg-accent-purple/10 text-accent-purple' : 'bg-bg-surface text-text-secondary'}`}>
-                        {u.plan || 'free'}
-                      </span>
-                      <p className="text-xs text-text-muted">{new Date(u.created_at).toLocaleDateString()}</p>
-                    </div>
+                    {u.email !== ADMIN_EMAIL && (
+                      <div className="flex items-center gap-2 ml-4">
+                        {u.plan !== 'pro' && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Upgrade ${u.email} to Pro?`)) return;
+                              await fetch(`/api/admin/users/${u.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ plan: 'pro' }),
+                              });
+                              // Refresh stats
+                              fetch('/api/admin/stats').then(r => r.ok ? r.json() : null).then(setStats);
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-accent-purple/10 text-accent-purple hover:bg-accent-purple/20 font-medium transition-colors"
+                          >
+                            Upgrade to Pro
+                          </button>
+                        )}
+                        {u.plan === 'pro' && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Downgrade ${u.email} to Free?`)) return;
+                              await fetch(`/api/admin/users/${u.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ plan: 'free', audits_this_month: 0 }),
+                              });
+                              fetch('/api/admin/stats').then(r => r.ok ? r.json() : null).then(setStats);
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/20 font-medium transition-colors"
+                          >
+                            Downgrade
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Reset audit count for ${u.email}?`)) return;
+                            await fetch(`/api/admin/users/${u.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ audits_this_month: 0 }),
+                            });
+                            fetch('/api/admin/stats').then(r => r.ok ? r.json() : null).then(setStats);
+                          }}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-bg-surface text-text-secondary hover:text-text-primary hover:bg-border-subtle font-medium transition-colors"
+                        >
+                          Reset Usage
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

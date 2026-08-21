@@ -17,7 +17,7 @@ export async function GET() {
         supabase.from('repo_audits').select('id', { count: 'exact', head: true }),
         supabase.from('audits').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
         supabase.from('audits').select('id', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
-        supabase.from('users').select('id, name, email, plan, created_at').order('created_at', { ascending: false }).limit(10),
+        supabase.from('users').select('id, name, email, plan, audits_this_month, created_at').order('created_at', { ascending: false }).limit(20),
         supabase.from('waitlist').select('id, email, plan, source, created_at').order('created_at', { ascending: false }),
       ]);
 
