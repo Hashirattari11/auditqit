@@ -1,59 +1,48 @@
-# Project Context
+# Project Context — AuditIQ
 
 ## Environment
-- Language: TypeScript / Next.js 14.2.29
-- Runtime: Node v24.13.1
-- Build: `npm run build` (times out locally, works on Vercel)
-- Deploy: Vercel (auditqit-0, user: hashirattari11)
-- DB: Supabase (iewczdhpgrgvqmohubgp)
-- AI: NVIDIA Nemotron 49B
-- Test user: finaltest@auditiq.dev / Test1234!
+- **Deployed**: `https://auditqit-0-eight.vercel.app`
+- **GitHub**: `https://github.com/Hashirattari11/auditqit`
+- **Database**: Supabase `https://iewczdhpgrgvqmohubgp.supabase.co`
+- **Admin**: `hashirattari73@gmail.com` / `Hashir@098`
+- **Vercel Token**: (stored in env, not committed)
+- **AI**: NVIDIA NIM — `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`
+- **Tech**: Next.js 14.2.29, Supabase (NOT Prisma), OpenAI SDK for NVIDIA NIM
 
-## What Was Done (M1-M6 Complete)
-- Phase 1: Core audit engine (web + GitHub)
-- Phase 2: AI integration (Nemotron 49B)
-- Phase 3: Auth, limits, payments (NextAuth v5)
-- Phase 4: PDF, polish, production
-- Auth fix (3 bugs: AUTH_SECRET, trustHost, cookie-based middleware)
-- All deployed and verified on Vercel: https://auditqit-0-eight.vercel.app
+## ACTIVE: Bug Detection System Fix — IN PROGRESS
 
-## UI/UX Overhaul (M7-M12) — COMPLETE ✅
-- Committed: c199e40 (34 files changed, 1532 insertions, 1192 deletions)
-- All old dark-* classes replaced with new design tokens
+### Completed (this session):
+- `workers/playwright.ts` — REWRITTEN: Added 10-point `page.evaluate()` frontend bug detection (alt text, empty links, form labels, buttons, mixed content, H1 count, viewport, inline styles, console.log in prod, render-blocking scripts). Returns `frontendBugs[]` + `frontendBugCount`.
+- `workers/ai-summary.ts` — REWRITTEN: Now includes `frontendBugs` in allIssues, updated prompt to focus on TOP 5 bugs with real data references.
+- `workers/index.ts` — Updated catch fallback to include `frontendBugs: []` and `frontendBugCount: 0`.
 
-### New Design System
-- **Tailwind tokens**: bg, surface, border-subtle, primary, accent-cyan/green/amber/red, text-primary/secondary/muted
-- **Fonts**: Inter (body), Syne (display), JetBrains Mono (code)
-- **Animations**: fadeUp, fadeIn, slideRight, scaleIn, float, pulseGlow, spinSlow, shimmer, slideInRight, gradient, blobMove, shake
-- **Components**: btn-primary/secondary/ghost/danger, card, card-hover, glass, input, score badges, skeleton, hero blobs, grid-pattern, accordion, reveal, shake
+### IN PROGRESS (Worker timed out — DO THIS NEXT):
+- `app/report/[id]/page.tsx` — NEEDS REWRITE: Add Bug interface, combine allBugs from 6 sources (frontendBugs + consoleErrors + failedRequests + security issues + SEO issues + broken links), add "Bugs Found" section with severity grouping ABOVE AI summary, add AI unavailable fallback message.
 
-### Files Rewritten (full redesign)
-- `tailwind.config.js` — All design tokens + animations
-- `app/globals.css` — Full design system
-- `app/layout.tsx` — 3 fonts + metadata
-- `app/page.tsx` — Landing page (hero, stats, features, how-it-works, live demo, comparison, pricing, testimonials, FAQ, CTA)
-- `app/auth/login/page.tsx` — Split layout
-- `app/auth/signup/page.tsx` — Split layout + password strength
-- `app/dashboard/page.tsx` — Sidebar + tabs
-- `app/pricing/page.tsx` — New pricing with Navbar/Footer
-- `app/launch/page.tsx` — New launch page
-- `app/admin/page.tsx` — New admin dashboard
-- `app/not-found.tsx`, `app/error.tsx`, `app/loading.tsx` — Created
-- `components/Navbar.tsx` — New glass navbar
-- `components/Footer.tsx` — New 4-column footer
-- `components/UpgradeModal.tsx` — New tokens
-- `components/Toast.tsx` — New tokens
-- `components/LoadingSkeleton.tsx` — New tokens
+### Key changes needed in report page:
+1. Add `Bug` interface
+2. Move Score Cards ABOVE AI summary
+3. Add bug aggregation code (allBugs array sorted by severity)
+4. Add "🐛 Bugs Found" section with severity-colored groups (critical=red, high=orange, medium=yellow, low=blue)
+5. Each bug shows: type, category badge, severity badge, element code snippet, fix suggestion
+6. Empty state: "✅ No bugs detected!" with green border
+7. AI summary comes AFTER bugs section
+8. Add AI unavailable message if no ai.summary
 
-### Files Updated (batch sed_replace)
-- All 12 components (AiSummary, AuditForm, AuditProgress, BrokenLinks, ErrorsList, MetricsBar, RecentAudits, ReportView, ScoreGauge, Screenshots, SecurityHeaders, SeoChecklist)
-- Both report pages (report/[id], github-report/[id])
+### After report page fix:
+- `npx tsc --noEmit` to verify
+- `git add` + `git commit` + `git push`
+- Vercel auto-deploys
 
-## Current Status
-- Pushed to Vercel: commit c199e40
-- Build waiting: background job job_3e2bb67d
-- Zero old dark-* classes remaining in codebase
+## Previously Committed
+- `e4b3c75` — Complete audit engine + UI overhaul (12 files, 1168 insertions)
+- `131609c` — Earlier bug fixes
+- `fd2ddd9` — Audit stuck auto-fail + reduced timeouts
 
-## Pending
-- Verify Vercel deployment succeeds and pages load correctly
-- Optional: update report pages further for richer design (currently functional with new tokens)
+## Key Lessons
+- Supabase 406 error: use RPC
+- `.catch()` doesn't work on Supabase query builder
+- Local machine can't reach NVIDIA API (Vercel-only)
+- OpenCode 13 agents in `.opencode/agents/`
+- `lib/audit-runner.ts` `runAuditInline()` is actual execution path (status endpoint polling)
+- Tailwind dynamic classes need safelist or use inline styles for dynamic colors

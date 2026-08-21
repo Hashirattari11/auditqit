@@ -13,6 +13,14 @@ interface AuditData {
   createdAt: string;
 }
 
+interface Bug {
+  type: string;
+  severity: string;
+  element?: string;
+  fix: string;
+  category?: string;
+}
+
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
@@ -148,6 +156,31 @@ export default function ReportPage() {
   const errors = r?.errors;
   const ai = r?.ai;
 
+  // ====== COMBINE ALL BUGS FROM ALL SOURCES ======
+  const allBugs: Bug[] = [
+    ...(errors?.frontendBugs ?? []).map((b: any) => ({
+      type: b.type, severity: b.severity, element: b.element, fix: b.fix, category: 'Frontend',
+    })),
+    ...(errors?.consoleErrors ?? []).map((e: any) => ({
+      type: 'JavaScript Console Error', severity: 'high', element: e.message, fix: e.fix, category: 'JavaScript',
+    })),
+    ...(errors?.failedRequests ?? []).map((r: any) => ({
+      type: `Failed to load ${r.resourceType}`, severity: 'medium', element: r.url, fix: r.fix, category: 'Network',
+    })),
+    ...(security?.issues ?? []).map((i: any) => ({
+      type: i.issue, severity: i.severity, element: i.description, fix: i.fix, category: 'Security',
+    })),
+    ...(seo?.issues ?? []).map((i: any) => ({
+      type: i.issue, severity: i.severity, element: i.location, fix: i.fix, category: 'SEO',
+    })),
+    ...(links?.broken ?? []).map((l: any) => ({
+      type: 'Broken Link', severity: 'medium', element: `${l.url} (HTTP ${l.status})`, fix: l.fix, category: 'Links',
+    })),
+  ].sort((a, b) => {
+    const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    return (order[a.severity] ?? 4) - (order[b.severity] ?? 4);
+  });
+
   return (
     <main className="min-h-screen pb-20">
       {/* Header — no-print */}
@@ -179,7 +212,62 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* 2. AI Executive Summary */}
+        {/* 2. Score Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <ScoreCard label="Performance" score={perf?.performance ?? 0} icon="⚡" />
+          <ScoreCard label="SEO" score={seo?.score ?? 0} icon="🔍" />
+          <ScoreCard label="Security" score={security?.score ?? 0} icon="🔒" />
+          <ScoreCard label="Overall" score={overallScore} icon="📊" />
+        </div>
+
+        {/* 3. BUGS FOUND — THE MAIN EVENT */}
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            🐛 Bugs Found
+            {allBugs.length > 0 && (
+              <span className="bg-red-500 text-white text-sm px-2 py-1 rounded-full">{allBugs.length}</span>
+            )}
+          </h2>
+          {allBugs.length > 0 ? (
+            <>
+              {(['critical', 'high', 'medium', 'low'] as const).map(severity => {
+                const bugs = allBugs.filter(b => b.severity === severity);
+                if (bugs.length === 0) return null;
+                const colorMap: Record<string, string> = { critical: 'red', high: 'orange', medium: 'yellow', low: 'blue' };
+                const color = colorMap[severity];
+                return (
+                  <div key={severity} className="mb-4">
+                    <h3 className={`text-${color}-400 font-semibold mb-2 uppercase text-sm`}>{severity} ({bugs.length})</h3>
+                    {bugs.map((bug, i) => (
+                      <div key={i} className={`border border-${color}-500/30 bg-${color}-500/5 rounded-lg p-4 mb-2`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-white font-medium">{bug.type}</span>
+                          <div className="flex items-center gap-2">
+                            {bug.category && <span className="text-xs bg-white/10 text-white/60 px-2 py-1 rounded">{bug.category}</span>}
+                            <span className={`text-xs bg-${color}-500/20 text-${color}-400 px-2 py-1 rounded`}>{bug.severity?.toUpperCase()}</span>
+                          </div>
+                        </div>
+                        {bug.element && <div className="bg-black/30 rounded p-2 mb-2 font-mono text-xs text-white/60 overflow-x-auto">{bug.element}</div>}
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-400 text-xs mt-0.5">💡</span>
+                          <span className="text-white/70 text-sm">{bug.fix}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div className="border border-green-500/30 bg-green-500/5 rounded-lg p-6 text-center">
+              <span className="text-4xl">✅</span>
+              <p className="text-green-400 font-medium mt-2">No bugs detected!</p>
+              <p className="text-white/50 text-sm">This site passed all automated checks</p>
+            </div>
+          )}
+        </section>
+
+        {/* 4. AI Executive Summary */}
         {ai?.summary && (
           <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-accent-purple/10 via-bg-surface/50 to-accent-blue/10 border border-accent-purple/20">
             <div className="flex items-center gap-2 mb-4">
@@ -191,48 +279,9 @@ export default function ReportPage() {
             </div>
           </div>
         )}
-
-        {/* 3. Score Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <ScoreCard label="Performance" score={perf?.performance ?? 0} icon="⚡" />
-          <ScoreCard label="SEO" score={seo?.score ?? 0} icon="🔍" />
-          <ScoreCard label="Security" score={security?.score ?? 0} icon="🔒" />
-          <ScoreCard label="Overall" score={overallScore} icon="📊" />
-        </div>
-
-        {/* 4. Critical Issues */}
-        {ai?.allIssues?.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <span>🚨</span> Issues Found ({ai.allIssues.length})
-            </h2>
-            <div className="space-y-3">
-              {ai.allIssues.slice(0, 15).map((issue: any, i: number) => (
-                <div key={i} className="border border-red-500/30 bg-red-500/5 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-white text-xs px-2 py-1 rounded ${
-                      issue.severity === 'critical' ? 'bg-red-600' :
-                      issue.severity === 'high' ? 'bg-red-500' :
-                      issue.severity === 'medium' ? 'bg-yellow-500' :
-                      'bg-blue-500'
-                    }`}>
-                      {issue.severity?.toUpperCase()}
-                    </span>
-                    <span className="text-sm text-white/60">{issue.category || issue.issue}</span>
-                  </div>
-                  <h3 className="text-white font-medium mb-1">{issue.issue}</h3>
-                  {issue.description && (
-                    <p className="text-white/60 text-sm mb-2">{issue.description}</p>
-                  )}
-                  {issue.fix && (
-                    <div className="bg-white/5 rounded p-3">
-                      <span className="text-green-400 text-xs font-mono">💡 Fix: </span>
-                      <span className="text-white/80 text-sm">{issue.fix}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+        {!ai?.summary && (
+          <div className="mb-8 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center">
+            <p className="text-yellow-400 text-sm">🤖 AI analysis unavailable — all bug data above is still valid from automated scanning.</p>
           </div>
         )}
 
@@ -257,7 +306,7 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* 6. Security Headers Table */}
+        {/* 6. Security Headers */}
         {security && (
           <div className="mb-8">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><span>🔒</span> Security Headers (Score: {security.score}/100)</h2>
