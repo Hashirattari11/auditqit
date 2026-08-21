@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Tab = 'overview' | 'web' | 'github' | 'monitors' | 'team' | 'api-keys' | 'settings';
+type Tab = 'overview' | 'web' | 'github' | 'monitors' | 'team' | 'api-keys' | 'settings' | 'admin';
 
-const navItems: { id: Tab; label: string; icon: string; pro?: boolean; team?: boolean }[] = [
+const ADMIN_EMAIL = 'hashirattari73@gmail.com';
+
+const navItems: { id: Tab; label: string; icon: string; pro?: boolean; team?: boolean; admin?: boolean }[] = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
   { id: 'web', label: 'Website Audits', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
   { id: 'github', label: 'GitHub Audits', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
@@ -15,6 +17,7 @@ const navItems: { id: Tab; label: string; icon: string; pro?: boolean; team?: bo
   { id: 'team', label: 'Team', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', team: true },
   { id: 'api-keys', label: 'API Keys', icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z', pro: true },
   { id: 'settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+  { id: 'admin', label: 'Admin Panel', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', admin: true },
 ];
 
 export default function DashboardPage() {
@@ -38,6 +41,8 @@ export default function DashboardPage() {
   if (!session) return null;
 
   const userInitial = (session.user?.name || session.user?.email || 'U')[0].toUpperCase();
+  const isAdmin = session.user?.email === ADMIN_EMAIL;
+  const visibleNavItems = navItems.filter(item => !item.admin || isAdmin);
 
   return (
     <div className="min-h-screen flex bg-bg">
@@ -53,7 +58,7 @@ export default function DashboardPage() {
 
         {/* Nav */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               key={item.id}
               onClick={() => { setTab(item.id); setSidebarOpen(false); }}
@@ -109,6 +114,23 @@ export default function DashboardPage() {
           {tab === 'team' && <TeamTab />}
           {tab === 'api-keys' && <ApiKeysTab />}
           {tab === 'settings' && <SettingsTab user={session.user} />}
+          {tab === 'admin' && isAdmin && (
+            <div className="space-y-6 animate-fade-up">
+              <div>
+                <h1 className="text-2xl font-display font-bold mb-1">Admin Panel</h1>
+                <p className="text-text-secondary">Manage users, waitlist, and system settings</p>
+              </div>
+              <Link href="/admin" className="card block hover:border-primary/30 transition-colors p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">Open Admin Dashboard</h3>
+                    <p className="text-sm text-text-secondary">View waitlist, user stats, system health, and manage the platform.</p>
+                  </div>
+                  <span className="text-primary text-2xl">&rarr;</span>
+                </div>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -203,6 +225,12 @@ function WebAuditsTab() {
     fetch('/api/audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => { setAudits(d.audits || []); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this audit?')) return;
+    await fetch(`/api/audit/${id}/delete`, { method: 'DELETE' });
+    setAudits(a => a.filter(x => x.id !== id));
+  };
+
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="flex items-center justify-between">
@@ -237,10 +265,11 @@ function WebAuditsTab() {
                   <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === 'completed' ? 'bg-accent-green/10 text-accent-green' : a.status === 'failed' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-amber/10 text-accent-amber'}`}>
                     {a.status}
                   </span>
-                  <Link href={`/report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View Report &rarr;</Link>
+                  <Link href={`/report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View &rarr;</Link>
                   {a.status === 'completed' && (
                     <Link href={`/api/report/${a.id}/pdf`} className="text-xs text-text-secondary hover:text-primary whitespace-nowrap">PDF</Link>
                   )}
+                  <button onClick={() => handleDelete(a.id)} className="text-xs text-accent-red hover:underline whitespace-nowrap">Delete</button>
                 </div>
               </div>
             ))}
@@ -259,6 +288,12 @@ function GitHubAuditsTab() {
   useEffect(() => {
     fetch('/api/github-audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => { setAudits(d.audits || []); setLoading(false); }).catch(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this audit?')) return;
+    await fetch(`/api/github-audit/${id}/delete`, { method: 'DELETE' });
+    setAudits(a => a.filter(x => x.id !== id));
+  };
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -294,10 +329,11 @@ function GitHubAuditsTab() {
                   <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === 'completed' ? 'bg-accent-green/10 text-accent-green' : a.status === 'failed' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-amber/10 text-accent-amber'}`}>
                     {a.status}
                   </span>
-                  <Link href={`/github-report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View Report &rarr;</Link>
+                  <Link href={`/github-report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View &rarr;</Link>
                   {a.status === 'completed' && (
                     <Link href={`/api/github-report/${a.id}/pdf`} className="text-xs text-text-secondary hover:text-primary whitespace-nowrap">PDF</Link>
                   )}
+                  <button onClick={() => handleDelete(a.id)} className="text-xs text-accent-red hover:underline whitespace-nowrap">Delete</button>
                 </div>
               </div>
             ))}

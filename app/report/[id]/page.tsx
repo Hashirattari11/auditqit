@@ -395,6 +395,9 @@ function AISummary({ summary }: { summary: string }) {
 }
 
 function PerformanceMetrics({ data }: { data: any }) {
+  if (!data) return null;
+  const metricsData = data.metrics || {};
+
   const metrics = [
     {
       label: 'Performance',
@@ -417,38 +420,38 @@ function PerformanceMetrics({ data }: { data: any }) {
     },
     {
       label: 'LCP',
-      value: data.metrics.lcp ? (data.metrics.lcp / 1000).toFixed(2) : 'N/A',
-      unit: data.metrics.lcp ? 's' : '',
-      bar: data.metrics.lcp ? Math.min(data.metrics.lcp / 4000, 1) : 0,
-      threshold: { good: 2500, bad: 4000, value: data.metrics.lcp },
+      value: metricsData.lcp ? (metricsData.lcp / 1000).toFixed(2) : 'N/A',
+      unit: metricsData.lcp ? 's' : '',
+      bar: metricsData.lcp ? Math.min(metricsData.lcp / 4000, 1) : 0,
+      threshold: { good: 2500, bad: 4000, value: metricsData.lcp },
     },
     {
       label: 'FCP',
-      value: data.metrics.fcp ? (data.metrics.fcp / 1000).toFixed(2) : 'N/A',
-      unit: data.metrics.fcp ? 's' : '',
-      bar: data.metrics.fcp ? Math.min(data.metrics.fcp / 3000, 1) : 0,
-      threshold: { good: 1800, bad: 3000, value: data.metrics.fcp },
+      value: metricsData.fcp ? (metricsData.fcp / 1000).toFixed(2) : 'N/A',
+      unit: metricsData.fcp ? 's' : '',
+      bar: metricsData.fcp ? Math.min(metricsData.fcp / 3000, 1) : 0,
+      threshold: { good: 1800, bad: 3000, value: metricsData.fcp },
     },
     {
       label: 'CLS',
-      value: data.metrics.cls !== null ? data.metrics.cls.toFixed(3) : 'N/A',
+      value: metricsData.cls !== null && metricsData.cls !== undefined ? metricsData.cls.toFixed(3) : 'N/A',
       unit: '',
-      bar: data.metrics.cls !== null ? Math.min(data.metrics.cls / 0.25, 1) : 0,
-      threshold: { good: 0.1, bad: 0.25, value: data.metrics.cls },
+      bar: metricsData.cls !== null && metricsData.cls !== undefined ? Math.min(metricsData.cls / 0.25, 1) : 0,
+      threshold: { good: 0.1, bad: 0.25, value: metricsData.cls },
     },
     {
       label: 'TBT',
-      value: data.metrics.tbt ? data.metrics.tbt.toFixed(0) : 'N/A',
-      unit: data.metrics.tbt ? 'ms' : '',
-      bar: data.metrics.tbt ? Math.min(data.metrics.tbt / 600, 1) : 0,
-      threshold: { good: 200, bad: 600, value: data.metrics.tbt },
+      value: metricsData.tbt ? metricsData.tbt.toFixed(0) : 'N/A',
+      unit: metricsData.tbt ? 'ms' : '',
+      bar: metricsData.tbt ? Math.min(metricsData.tbt / 600, 1) : 0,
+      threshold: { good: 200, bad: 600, value: metricsData.tbt },
     },
     {
       label: 'TTFB',
-      value: data.metrics.ttfb ? (data.metrics.ttfb / 1000).toFixed(2) : 'N/A',
-      unit: data.metrics.ttfb ? 's' : '',
-      bar: data.metrics.ttfb ? Math.min(data.metrics.ttfb / 1800, 1) : 0,
-      threshold: { good: 800, bad: 1800, value: data.metrics.ttfb },
+      value: metricsData.ttfb ? (metricsData.ttfb / 1000).toFixed(2) : 'N/A',
+      unit: metricsData.ttfb ? 's' : '',
+      bar: metricsData.ttfb ? Math.min(metricsData.ttfb / 1800, 1) : 0,
+      threshold: { good: 800, bad: 1800, value: metricsData.ttfb },
     },
   ];
 

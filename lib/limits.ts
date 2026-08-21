@@ -3,6 +3,7 @@ import { supabase } from './db';
 export const FREE_LIMIT = 5;
 export const ANON_LIMIT = 2;
 export const PRO_PRICE = '$9/month';
+const ADMIN_EMAIL = 'hashirattari73@gmail.com';
 
 export interface UsageCheck {
   allowed: boolean;
@@ -16,12 +17,17 @@ export interface UsageCheck {
 export async function checkUserUsage(userId: string): Promise<UsageCheck> {
   const { data: user } = await supabase
     .from('users')
-    .select('plan, audits_this_month, month_reset_date')
+    .select('plan, audits_this_month, month_reset_date, email')
     .eq('id', userId)
     .single();
 
   if (!user) {
     return { allowed: false, current: 0, limit: 0, plan: 'none', reason: 'User not found' };
+  }
+
+  // Admin gets unlimited access
+  if (user.email === ADMIN_EMAIL) {
+    return { allowed: true, current: user.audits_this_month || 0, limit: Infinity, plan: 'admin' };
   }
 
   // Check if month has reset
