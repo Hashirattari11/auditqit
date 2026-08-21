@@ -14,7 +14,7 @@ export async function GET(
   const { id } = params;
 
   // Try web audit first, then GitHub audit
-  let audit = await db.getAudit(id);
+  let audit: any = await db.getAudit(id);
   let type = 'website';
 
   if (!audit) {
@@ -29,7 +29,7 @@ export async function GET(
     if (type === 'website') {
       const claimed = await db.claimAudit(id);
       if (claimed) {
-        const result = await runAuditInline(audit.url || (audit as any).repo_url, id);
+        const result = await runAuditInline(audit.url || audit.repo_url, id);
         return NextResponse.json({
           id, type, status: result.status,
           scores: calculateScores(result.results),
@@ -40,7 +40,7 @@ export async function GET(
     } else {
       const claimed = await db.claimRepoAudit(id);
       if (claimed) {
-        const result = await runGitHubAuditInline((audit as any).repo_url, id);
+        const result = await runGitHubAuditInline(audit.repo_url, id);
         return NextResponse.json({
           id, type, status: result.status,
           scores: calculateScores(result.results),
@@ -57,7 +57,7 @@ export async function GET(
     id, type, status: audit.status,
     scores,
     results: audit.results,
-    aiSummary: type === 'website' ? (audit as any).ai_summary : (audit as any).ai_summary,
+    aiSummary: audit.ai_summary,
   });
 }
 
