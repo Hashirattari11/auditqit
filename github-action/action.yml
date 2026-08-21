@@ -1,0 +1,43 @@
+name: 'AuditIQ Web Audit'
+description: 'Run website and code audits with AuditIQ'
+author: 'AuditIQ'
+
+inputs:
+  api-key:
+    description: 'AuditIQ API key'
+    required: true
+  url:
+    description: 'Website URL to audit'
+    required: false
+  repo:
+    description: 'GitHub repo to audit'
+    required: false
+    default: ${{ github.repository }}
+  min-performance:
+    description: 'Minimum performance score (0-100)'
+    required: false
+    default: '70'
+  min-seo:
+    description: 'Minimum SEO score'
+    required: false
+    default: '70'
+  fail-on-critical:
+    description: 'Fail build if critical security issues found'
+    required: false
+    default: 'true'
+
+outputs:
+  performance-score:
+    description: 'Performance score (0-100)'
+  seo-score:
+    description: 'SEO score (0-100)'
+  security-score:
+    description: 'Security score (0-100)'
+  audit-url:
+    description: 'Link to full audit report'
+  issues-found:
+    description: 'Number of issues found'
+
+runs:
+  using: 'node20'
+  main: 'index.js'

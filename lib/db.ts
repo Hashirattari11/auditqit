@@ -263,4 +263,108 @@ export const db = {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     ).slice(0, limit);
   },
+
+  // === API Keys ===
+  async createApiKey(userId: string, name: string) {
+    const key = 'aiq_live_' + Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, '0')).join('');
+    const { data, error } = await supabase.from('api_keys').insert({ user_id: userId, name, key }).select('id, key, name').single();
+    if (error) throw error;
+    return data as { id: string; key: string; name: string };
+  },
+
+  async getApiKeys(userId: string) {
+    const { data, error } = await supabase.from('api_keys').select('id, name, key, last_used, usage_count, is_active, created_at').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map((k: any) => ({ ...k, key: k.key.substring(0, 12) + '...' }));
+  },
+
+  async revokeApiKey(id: string, userId: string) {
+    const { error } = await supabase.from('api_keys').update({ is_active: false }).eq('id', id).eq('user_id', userId);
+    if (error) throw error;
+  },
+
+  async validateApiKey(key: string) {
+    const { data, error } = await supabase.from('api_keys').select('*').eq('key', key).eq('is_active', true).single();
+    if (error || !data) return null;
+    await supabase.from('api_keys').update({ last_used: new Date().toISOString(), usage_count: (data.usage_count || 0) + 1 }).eq('id', data.id);
+    return data;
+  },
+
+  async logApiKeyUsage(apiKeyId: string, endpoint: string) {
+    await supabase.from('api_usage').insert({ api_key_id: apiKeyId, endpoint }).catch(() => {});
+  },
+
+  async getApiKeyUsageCount(apiKeyId: string, hours: number): Promise<number> {
+    const since = new Date(Date.now() - hours * 3600000).toISOString();
+    const { count } = await supabase.from('api_usage').select('id', { count: 'exact', head: true }).eq('api_key_id', apiKeyId).gte('created_at', since);
+    return count || 0;
+  },
+
+  // === Monitors ===
+  async createMonitor(userId: string, url: string, name: string, frequency = 'daily', alertOnDrop = 10) {
+    const nextRun = new Date(Date.now() + (frequency === 'weekly' ? 7 : 1) * 86400000).toISOString();
+    const { data, error } = await supabase.from('monitors').insert({ user_id: userId, url, name, frequency, alert_on_drop: alertOnDrop, next_run_at: nextRun }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getMonitors(userId: string) {
+    const { data, error } = await supabase.from('monitors').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) return [];
+    return data || [];
+  },
+
+  async deleteMonitor(id: string, userId: string) {
+    const { error } = await supabase.from('monitors').delete().eq('id', id).eq('user_id', userId);
+    if (error) throw error;
+  },
+
+  async getMonitorsDueForAudit() {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase.from('monitors').select('*').eq('is_active', true).lte('next_run_at', now);
+    if (error) return [];
+    return data || [];
+  },
+
+  async updateMonitorScore(monitorId: string, score: number, auditId: string) {
+    const monitor = await supabase.from('monitors').select('frequency').eq('id', monitorId).single();
+    const freq = monitor.data?.frequency || 'daily';
+    const nextRun = new Date(Date.now() + (freq === 'weekly' ? 7 : 1) * 86400000).toISOString();
+    await supabase.from('monitors').update({ last_score: score, last_audit_id: auditId, next_run_at: nextRun }).eq('id', monitorId);
+    await supabase.from('monitor_audits').insert({ monitor_id: monitorId, audit_id: auditId, score });
+  },
+
+  // === Teams ===
+  async createTeam(name: string, ownerId: string) {
+    const { data: team, error: teamErr } = await supabase.from('teams').insert({ name, owner_id: ownerId }).select().single();
+    if (teamErr) throw teamErr;
+    await supabase.from('team_members').insert({ team_id: team.id, user_id: ownerId, role: 'owner' });
+    return team;
+  },
+
+  async getUserTeam(userId: string) {
+    const { data: membership } = await supabase.from('team_members').select('team_id, role').eq('user_id', userId).single();
+    if (!membership) return null;
+    const { data: team } = await supabase.from('teams').select('*').eq('id', membership.team_id).single();
+    if (!team) return null;
+    const { data: members } = await supabase.from('team_members').select('*').eq('team_id', team.id);
+    return { ...team, members: members || [], myRole: membership.role };
+  },
+
+  async inviteTeamMember(teamId: string, email: string) {
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join('');
+    const expires = new Date(Date.now() + 7 * 86400000).toISOString();
+    const { data, error } = await supabase.from('team_invites').insert({ team_id: teamId, email, token, expires_at: expires }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async acceptTeamInvite(token: string, userId: string) {
+    const { data: invite } = await supabase.from('team_invites').select('*').eq('token', token).eq('accepted', false).single();
+    if (!invite) return null;
+    if (new Date(invite.expires_at) < new Date()) return null;
+    await supabase.from('team_invites').update({ accepted: true }).eq('id', invite.id);
+    await supabase.from('team_members').insert({ team_id: invite.team_id, user_id: userId, role: 'member' });
+    return invite;
+  },
 };
