@@ -33,7 +33,7 @@ export async function runGitHubAuditInline(repoUrl: string, auditId: string): Pr
       current_step: '',
     });
 
-    return { status: 'completed', results: results as Record<string, unknown>, aiSummary };
+    return { status: 'completed', results: results as unknown as Record<string, unknown>, aiSummary };
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : 'Unknown error';
     await db.updateRepoAudit(auditId, {
