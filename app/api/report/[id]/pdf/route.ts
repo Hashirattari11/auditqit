@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(
   _request: NextRequest,
@@ -27,7 +28,7 @@ export async function GET(
     const chromium = await import('@sparticuz/chromium');
 
     const browser = await puppeteer.default.launch({
-      args: (chromium as any).args || [],
+      args: (chromium as any).args || ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
       defaultViewport: { width: 1280, height: 720 },
       executablePath: await (chromium as any).executablePath(),
       headless: true,
@@ -35,14 +36,20 @@ export async function GET(
 
     const page = await browser.newPage();
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Use deployed URL, fallback to localhost for dev
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    console.log(`[pdf] Navigating to ${baseUrl}/report/${id}`);
+
     await page.goto(`${baseUrl}/report/${id}?pdf=true`, {
       waitUntil: 'networkidle0',
       timeout: 30000,
     });
 
     // Wait for content to render
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 3000));
 
     const pdfBuffer = await page.pdf({
       format: 'A4',

@@ -84,8 +84,28 @@ export default function ReportPage() {
     alert('Link copied to clipboard!');
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    // Generate PDF client-side using the browser's print dialog
+    // First, find or load the PDF endpoint
+    try {
+      const res = await fetch(`/api/report/${auditId}/pdf`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audit-report-${auditId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+      } else {
+        // Fallback: use browser print
+        window.print();
+      }
+    } catch {
+      window.print();
+    }
   };
 
   const handleRerun = async () => {
