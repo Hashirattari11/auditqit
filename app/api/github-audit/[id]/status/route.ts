@@ -60,20 +60,19 @@ export async function GET(
     }
 
     console.log(`GitHub audit ${audit.id} claimed — running synchronously...`);
-    await runGitHubAuditInline(audit.repo_url, audit.id);
+    const runResult = await runGitHubAuditInline(audit.repo_url, audit.id);
 
-    const completed = await db.getRepoAudit(audit.id);
     return NextResponse.json({
-      id: completed!.id,
-      repoUrl: completed!.repo_url,
-      owner: completed!.owner,
-      repo: completed!.repo,
-      status: completed!.status,
+      id: audit.id,
+      repoUrl: audit.repo_url,
+      owner: audit.owner,
+      repo: audit.repo,
+      status: runResult.status,
       currentStep: '',
-      results: completed!.results,
-      aiSummary: completed!.ai_summary,
-      createdAt: completed!.created_at,
-    });
+      results: runResult.results,
+      aiSummary: runResult.aiSummary,
+      createdAt: audit.created_at,
+    }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
   } catch (error) {
     console.error('Failed to get GitHub audit status:', error);
     return NextResponse.json({ error: 'Failed to get audit status' }, { status: 500 });

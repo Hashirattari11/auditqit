@@ -2,8 +2,17 @@ import { db } from '@/lib/db';
 
 const runningJobs = new Set<string>();
 
-export async function runGitHubAuditInline(repoUrl: string, auditId: string) {
-  if (runningJobs.has(auditId)) return;
+export interface GitHubAuditRunResult {
+  status: 'completed' | 'failed';
+  results: Record<string, unknown>;
+  aiSummary: string;
+}
+
+export async function runGitHubAuditInline(repoUrl: string, auditId: string): Promise<GitHubAuditRunResult> {
+  if (runningJobs.has(auditId)) {
+    const existing = await db.getRepoAudit(auditId);
+    return { status: (existing?.status as any) || 'running', results: existing?.results || {}, aiSummary: existing?.ai_summary || '' };
+  }
   runningJobs.add(auditId);
 
   try {
@@ -23,12 +32,16 @@ export async function runGitHubAuditInline(repoUrl: string, auditId: string) {
       ai_summary: aiSummary,
       current_step: '',
     });
+
+    return { status: 'completed', results: results as Record<string, unknown>, aiSummary };
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
     await db.updateRepoAudit(auditId, {
       status: 'failed',
       current_step: '',
-      results: { error: error instanceof Error ? error.message : 'Unknown error' } as any,
+      results: { error: errMsg } as any,
     });
+    return { status: 'failed', results: { error: errMsg }, aiSummary: '' };
   } finally {
     runningJobs.delete(auditId);
   }

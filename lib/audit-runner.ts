@@ -17,8 +17,18 @@ const STEP_KEYS = {
   ai: 'ai',
 } as const;
 
-export async function runAuditInline(url: string, auditId: string) {
-  if (runningJobs.has(auditId)) return;
+export interface AuditRunResult {
+  status: 'completed' | 'failed';
+  results: Record<string, unknown>;
+  aiSummary: string;
+}
+
+export async function runAuditInline(url: string, auditId: string): Promise<AuditRunResult> {
+  if (runningJobs.has(auditId)) {
+    // Already running — return current state from DB
+    const existing = await db.getAudit(auditId);
+    return { status: (existing?.status as any) || 'running', results: existing?.results || {}, aiSummary: existing?.ai_summary || '' };
+  }
   runningJobs.add(auditId);
 
   try {
@@ -113,12 +123,16 @@ export async function runAuditInline(url: string, auditId: string) {
       ai_summary: aiSummary,
       current_step: '',
     });
+
+    return { status: 'completed', results, aiSummary };
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
     await db.updateAudit(auditId, {
       status: 'failed',
       current_step: '',
-      results: { error: error instanceof Error ? error.message : 'Unknown error' } as any,
+      results: { error: errMsg } as any,
     });
+    return { status: 'failed', results: { error: errMsg }, aiSummary: '' };
   } finally {
     runningJobs.delete(auditId);
   }

@@ -54,15 +54,15 @@ export async function GET(
 
     console.log(`[status] Audit ${id} claimed — running synchronously...`);
     const startTime = Date.now();
-    await runAuditInline(audit.url, audit.id);
+    const runResult = await runAuditInline(audit.url, audit.id);
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[status] Audit ${id} finished in ${elapsed}s`);
+    console.log(`[status] Audit ${id} finished in ${elapsed}s — status=${runResult.status}`);
 
-    const completed = await db.getAudit(audit.id);
+    // Return results directly from runAuditInline (no DB re-read needed)
     return NextResponse.json({
-      id: completed!.id, url: completed!.url, status: completed!.status,
-      currentStep: '', results: completed!.results, aiSummary: completed!.ai_summary,
-      createdAt: completed!.created_at,
+      id: audit.id, url: audit.url, status: runResult.status,
+      currentStep: '', results: runResult.results, aiSummary: runResult.aiSummary,
+      createdAt: audit.created_at,
     }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
   } catch (error) {
