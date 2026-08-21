@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Tab = 'overview' | 'web' | 'github' | 'settings';
+type Tab = 'overview' | 'web' | 'github' | 'monitors' | 'team' | 'api-keys' | 'settings';
 
-const navItems: { id: Tab; label: string; icon: string }[] = [
+const navItems: { id: Tab; label: string; icon: string; pro?: boolean; team?: boolean }[] = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
   { id: 'web', label: 'Website Audits', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
   { id: 'github', label: 'GitHub Audits', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
+  { id: 'monitors', label: 'Monitors', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z', pro: true },
+  { id: 'team', label: 'Team', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', team: true },
+  { id: 'api-keys', label: 'API Keys', icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z', pro: true },
   { id: 'settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
 ];
 
@@ -62,6 +65,8 @@ export default function DashboardPage() {
             >
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
               {item.label}
+              {item.pro && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue font-semibold">PRO</span>}
+              {item.team && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-semibold">TEAM</span>}
             </button>
           ))}
         </nav>
@@ -100,6 +105,9 @@ export default function DashboardPage() {
           {tab === 'overview' && <OverviewTab user={session.user} />}
           {tab === 'web' && <WebAuditsTab />}
           {tab === 'github' && <GitHubAuditsTab />}
+          {tab === 'monitors' && <MonitorsTab />}
+          {tab === 'team' && <TeamTab />}
+          {tab === 'api-keys' && <ApiKeysTab />}
           {tab === 'settings' && <SettingsTab user={session.user} />}
         </div>
       </div>
@@ -238,6 +246,219 @@ function SettingsTab({ user }: { user: { name?: string | null; email?: string | 
         <p className="text-sm text-text-secondary mb-4">Permanently delete your account and all associated data.</p>
         <button className="btn-danger text-sm">Delete Account</button>
       </div>
+    </div>
+  );
+}
+
+/* ── Monitors Tab ─────────────────────────────────────── */
+function MonitorsTab() {
+  const [monitors, setMonitors] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/monitors').then(r => r.ok ? r.json() : []).then(setMonitors).catch(() => {});
+  }, []);
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-display font-bold">Monitors</h2>
+          <p className="text-sm text-text-secondary">Track your website scores over time</p>
+        </div>
+        <button onClick={() => setShowModal(true)} className="btn-primary text-sm">Add Monitor</button>
+      </div>
+
+      {monitors.length === 0 ? (
+        <div className="card text-center py-12">
+          <p className="text-4xl mb-3">&#x1F4CA;</p>
+          <p className="text-text-secondary mb-4">No monitors yet</p>
+          <button onClick={() => setShowModal(true)} className="btn-primary text-sm">Create Your First Monitor</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {monitors.map((m: any) => (
+            <div key={m.id} className="card flex items-center justify-between">
+              <div>
+                <p className="font-medium">{m.name}</p>
+                <p className="text-sm text-text-secondary">{m.url}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-accent-green">{m.last_score || '—'}/100</p>
+                <p className="text-xs text-text-muted">{m.frequency}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowModal(false)}>
+          <div className="card w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4">Add Monitor</h3>
+            <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              await fetch('/api/monitors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: fd.get('url'), name: fd.get('name'), frequency: fd.get('frequency') }) });
+              setShowModal(false);
+              fetch('/api/monitors').then(r => r.ok ? r.json() : []).then(setMonitors);
+            }}>
+              <input name="name" placeholder="Monitor name" className="input mb-3 w-full" required />
+              <input name="url" placeholder="https://example.com" className="input mb-3 w-full" required />
+              <select name="frequency" className="input mb-4 w-full">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" className="btn-primary flex-1">Start Monitoring</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Team Tab ─────────────────────────────────────── */
+function TeamTab() {
+  const [team, setTeam] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/team').then(r => r.ok ? r.json() : null).then(setTeam).catch(() => {});
+  }, []);
+
+  if (!team) {
+    return (
+      <div className="space-y-6 animate-fade-up">
+        <div>
+          <h2 className="text-xl font-display font-bold">Team</h2>
+          <p className="text-sm text-text-secondary">Collaborate with your team</p>
+        </div>
+        <div className="card text-center py-12">
+          <p className="text-4xl mb-3">&#x1F465;</p>
+          <p className="text-text-secondary mb-2">Team features require the Team plan</p>
+          <p className="text-sm text-text-muted mb-4">Get 5 team members, shared audits, bulk scanning, and white-label reports.</p>
+          <a href="/pricing" className="btn-primary text-sm">Upgrade to Team</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h2 className="text-xl font-display font-bold">{team.name}</h2>
+        <p className="text-sm text-text-secondary">Team plan &middot; {team.members?.length || 0} members</p>
+      </div>
+      <div className="card">
+        <h3 className="font-semibold mb-3">Members</h3>
+        <div className="space-y-2">
+          {team.members?.map((m: any) => (
+            <div key={m.id} className="flex items-center justify-between py-2 border-b border-border-subtle last:border-0">
+              <span className="text-sm">{m.user?.email || m.user_id}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue">{m.role}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <h3 className="font-semibold mb-3">Invite Member</h3>
+        <div className="flex gap-3">
+          <input placeholder="email@company.com" className="input flex-1" />
+          <button className="btn-primary text-sm">Send Invite</button>
+        </div>
+      </div>
+      <a href="/dashboard/team/bulk" className="card block hover:border-accent-purple/30 transition-colors">
+        <h3 className="font-semibold mb-1">Bulk URL Scanning</h3>
+        <p className="text-sm text-text-secondary">Upload a CSV of URLs and scan them all at once.</p>
+      </a>
+    </div>
+  );
+}
+
+/* ── API Keys Tab ─────────────────────────────────────── */
+function ApiKeysTab() {
+  const [keys, setKeys] = useState<any[]>([]);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [keyName, setKeyName] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/api-keys').then(r => r.ok ? r.json() : []).then(setKeys).catch(() => {});
+  }, []);
+
+  const handleCreate = async () => {
+    const res = await fetch('/api/api-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: keyName }) });
+    if (res.ok) {
+      const data = await res.json();
+      setNewKey(data.key);
+      setShowCreate(false);
+      fetch('/api/api-keys').then(r => r.ok ? r.json() : []).then(setKeys);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-display font-bold">API Keys</h2>
+          <p className="text-sm text-text-secondary">Use AuditIQ programmatically via the API</p>
+        </div>
+        <button onClick={() => setShowCreate(true)} className="btn-primary text-sm">Generate New Key</button>
+      </div>
+
+      {newKey && (
+        <div className="card border-accent-green/30 bg-accent-green/5">
+          <p className="text-sm text-accent-green font-semibold mb-2">API Key Created (copy it now, it won&apos;t be shown again)</p>
+          <div className="flex items-center gap-2">
+            <code className="text-sm bg-bg-surface px-3 py-2 rounded-lg flex-1 overflow-x-auto">{newKey}</code>
+            <button onClick={() => { navigator.clipboard.writeText(newKey); }} className="btn-secondary text-sm">Copy</button>
+          </div>
+          <button onClick={() => setNewKey(null)} className="text-sm text-text-muted mt-2 hover:text-text-primary">Dismiss</button>
+        </div>
+      )}
+
+      {keys.length === 0 && !newKey ? (
+        <div className="card text-center py-12">
+          <p className="text-4xl mb-3">&#x1F511;</p>
+          <p className="text-text-secondary mb-4">No API keys yet</p>
+          <button onClick={() => setShowCreate(true)} className="btn-primary text-sm">Create Your First Key</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {keys.map((k: any) => (
+            <div key={k.id} className="card flex items-center justify-between">
+              <div>
+                <p className="font-medium">{k.name}</p>
+                <p className="text-xs text-text-muted">{k.key?.substring(0, 12)}... &middot; Used {k.usage_count || 0} times</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={	ext-xs px-2 py-0.5 rounded-full }>
+                  {k.is_active ? 'Active' : 'Revoked'}
+                </span>
+                {k.is_active && (
+                  <button onClick={async () => { await fetch(/api/api-keys/, { method: 'DELETE' }); fetch('/api/api-keys').then(r => r.ok ? r.json() : []).then(setKeys); }} className="text-xs text-accent-red hover:underline">Revoke</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
+          <div className="card w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4">Generate API Key</h3>
+            <input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Key name (e.g., CI Pipeline)" className="input w-full mb-4" autoFocus />
+            <div className="flex gap-3">
+              <button onClick={() => setShowCreate(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleCreate} disabled={!keyName} className="btn-primary flex-1">Generate</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
