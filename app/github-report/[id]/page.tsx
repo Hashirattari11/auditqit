@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import AutoFixPanel from '@/components/AutoFixPanel';
 
 interface RepoAuditData {
   id: string;
@@ -52,6 +53,7 @@ export default function GitHubReportPage() {
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [selectedIssue, setSelectedIssue] = useState<any>(null);
 
   const pollStatus = useCallback(async () => {
     try {
@@ -377,6 +379,16 @@ export default function GitHubReportPage() {
                         </pre>
                       </div>
                     )}
+
+                    {/* AI Auto-Fix Button */}
+                    {!issue.fixedCode && (
+                      <button
+                        onClick={() => setSelectedIssue(issue)}
+                        className="px-4 py-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-sm font-medium hover:bg-accent-purple/20 transition-colors"
+                      >
+                        🤖 AI Auto-Fix This Issue
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -424,6 +436,22 @@ export default function GitHubReportPage() {
             </table>
           </div>
         </section>
+      )}
+
+      {/* AI Auto-Fix Modal */}
+      {selectedIssue && (
+        <AutoFixPanel
+          auditId={auditId}
+          issue={{
+            id: selectedIssue.id,
+            title: selectedIssue.title,
+            description: selectedIssue.description,
+            severity: selectedIssue.severity,
+            filePath: selectedIssue.file,
+            originalCode: selectedIssue.codeSnippet,
+          }}
+          onClose={() => setSelectedIssue(null)}
+        />
       )}
     </main>
   );

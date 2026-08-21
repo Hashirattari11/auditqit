@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import WebhookSettings from '@/components/WebhookSettings';
 
 type Tab = 'overview' | 'web' | 'github' | 'monitors' | 'team' | 'api-keys' | 'settings' | 'admin';
 
@@ -360,6 +361,10 @@ function SettingsTab({ user }: { user: { name?: string | null; email?: string | 
           </div>
           <Link href="/pricing" className="btn-primary text-sm">Upgrade</Link>
         </div>
+      </div>
+
+      <div className="card">
+        <WebhookSettings />
       </div>
 
       <div className="card border-accent-red/20">

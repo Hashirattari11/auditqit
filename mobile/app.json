@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "AuditIQ",
+    "slug": "auditiq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0e1a",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.auditiq.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0e1a"
+      },
+      "package": "com.auditiq.app"
+    },
+    "plugins": ["expo-router", "expo-notifications"],
+    "scheme": "auditiq"
+  }
+}

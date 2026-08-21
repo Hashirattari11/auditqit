@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import ReportChat from '@/components/ReportChat';
+import ScoreTimeline from '@/components/ScoreTimeline';
 
 interface AuditData {
   id: string;
@@ -232,11 +234,20 @@ export default function ReportPage() {
           <Screenshots data={report.results.playwright.screenshots} />
         )}
 
+        {/* Score Timeline */}
+        <ScoreTimeline url={report.url} currentId={auditId} />
+
         {/* Errors from failed steps */}
         {report.results?.errors?.failedSteps?.length > 0 && (
           <FailedSteps steps={report.results.errors.failedSteps} />
         )}
+
+        {/* Make Public Toggle */}
+        <MakePublicToggle auditId={auditId} />
       </div>
+
+      {/* Floating AI Chat */}
+      <ReportChat auditId={auditId} />
     </main>
   );
 }
@@ -851,6 +862,49 @@ function FailedSteps({ steps }: { steps: { step: string; name: string; error: st
             <p className="text-text-muted text-sm mt-1">{step.error}</p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function MakePublicToggle({ auditId }: { auditId: string }) {
+  const [isPublic, setIsPublic] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/audit/${auditId}/report`).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.isPublic !== undefined) setIsPublic(d.isPublic); }).catch(() => {});
+  }, [auditId]);
+
+  const toggle = async () => {
+    const next = !isPublic;
+    setIsPublic(next);
+    setSaved(false);
+    try {
+      await fetch(`/api/audit/${auditId}/set-public`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_public: next }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch { setIsPublic(!next); }
+  };
+
+  return (
+    <div className="mb-8 p-4 rounded-xl bg-bg-surface border border-border-subtle flex items-center justify-between">
+      <div>
+        <p className="font-medium text-sm">Public Leaderboard</p>
+        <p className="text-xs text-text-muted">Show this report on the public leaderboard</p>
+      </div>
+      <div className="flex items-center gap-3">
+        {saved && <span className="text-xs text-accent-green">Saved</span>}
+        <button
+          onClick={toggle}
+          className={`relative w-12 h-6 rounded-full transition-colors ${isPublic ? 'bg-primary' : 'bg-bg-card'}`}
+        >
+          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${isPublic ? 'left-[26px]' : 'left-0.5'}`} />
+        </button>
       </div>
     </div>
   );
