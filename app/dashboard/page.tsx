@@ -435,11 +435,11 @@ function ApiKeysTab() {
                 <p className="text-xs text-text-muted">{k.key?.substring(0, 12)}... &middot; Used {k.usage_count || 0} times</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={	ext-xs px-2 py-0.5 rounded-full }>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${k.is_active ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'}`}>
                   {k.is_active ? 'Active' : 'Revoked'}
                 </span>
                 {k.is_active && (
-                  <button onClick={async () => { await fetch(/api/api-keys/, { method: 'DELETE' }); fetch('/api/api-keys').then(r => r.ok ? r.json() : []).then(setKeys); }} className="text-xs text-accent-red hover:underline">Revoke</button>
+                  <button onClick={async () => { await fetch(`/api/api-keys/${k.id}`, { method: 'DELETE' }); fetch('/api/api-keys').then(r => r.ok ? r.json() : []).then(setKeys); }} className="text-xs text-accent-red hover:underline">Revoke</button>
                 )}
               </div>
             </div>
