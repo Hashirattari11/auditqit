@@ -70,8 +70,8 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
       seo: { name: 'SEO Analysis', status: 'pending', stepKey: STEP_KEYS.seo },
     };
 
-    const stepTimeout = 45000;
-    const totalTimeout = 180000;
+    const stepTimeout = 30000;
+    const totalTimeout = 120000;
 
     const runStep = async (key: string, fn: () => Promise<unknown>) => {
       steps[key].status = 'running';

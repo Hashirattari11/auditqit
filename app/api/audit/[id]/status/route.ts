@@ -22,6 +22,23 @@ export async function GET(
     console.log(`[status] Audit ${id} status=${audit.status} step=${audit.current_step}`);
 
     if (audit.status === 'running') {
+      // STUCK AUDIT DETECTION: If audit has been "running" for >3 minutes, auto-fail it
+      const updatedAt = new Date(audit.updated_at).getTime();
+      const stuckMinutes = (Date.now() - updatedAt) / 60000;
+      if (stuckMinutes > 3) {
+        console.log(`[status] Audit ${id} stuck for ${stuckMinutes.toFixed(1)} min — auto-failing`);
+        await db.updateAudit(id, {
+          status: 'failed',
+          current_step: '',
+          results: { error: 'Audit timed out — the server took too long to respond. Please try again.' } as any,
+        });
+        return NextResponse.json({
+          id: audit.id, url: audit.url, status: 'failed',
+          currentStep: '', results: { error: 'Audit timed out' }, aiSummary: '',
+          createdAt: audit.created_at,
+        }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+      }
+
       return NextResponse.json({
         id: audit.id, url: audit.url, status: 'running',
         currentStep: audit.current_step || 'Working...',
@@ -58,7 +75,6 @@ export async function GET(
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[status] Audit ${id} finished in ${elapsed}s — status=${runResult.status}`);
 
-    // Return results directly from runAuditInline (no DB re-read needed)
     return NextResponse.json({
       id: audit.id, url: audit.url, status: runResult.status,
       currentStep: '', results: runResult.results, aiSummary: runResult.aiSummary,
