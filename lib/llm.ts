@@ -5,6 +5,14 @@ const client = new OpenAI({
   baseURL: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
 });
 
+// Fallback models in case the primary one fails
+const FALLBACK_MODELS = [
+  process.env.LLM_MODEL,
+  'meta/llama-3.3-70b-instruct',
+  'microsoft/phi-4-mini-instruct',
+  'nvidia/nemotron-mini-4b-instruct',
+].filter(Boolean) as string[];
+
 const WEB_AUDIT_PROMPT = `You are a web performance expert. Analyze these audit results and provide:
 1. Overall health score (0-100)
 2. Top 3 critical issues that need immediate fixing (with exact fix instructions)
@@ -28,64 +36,57 @@ IMPORTANT: For each critical/high issue, provide the EXACT corrected code that f
 Format in clean markdown sections. Be specific with line references and file paths.
 Use code blocks for all code suggestions.`;
 
-export async function generateAISummary(auditResults: Record<string, unknown>): Promise<string> {
+async function tryGenerate(
+  model: string,
+  systemPrompt: string,
+  userContent: string,
+  maxTokens: number
+): Promise<string | null> {
   try {
-    const model = process.env.LLM_MODEL || 'gpt-4o-mini';
-
     const response = await client.chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: WEB_AUDIT_PROMPT },
-        {
-          role: 'user',
-          content: `Analyze these web audit results and provide your expert assessment:\n\n${JSON.stringify(auditResults, null, 2)}`,
-        },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: maxTokens,
     }, { timeout: 30000 });
 
-    return response.choices[0]?.message?.content || 'AI summary generation failed - no response returned.';
+    return response.choices[0]?.message?.content || null;
   } catch (error) {
-    console.error('AI Summary generation failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return `AI summary generation failed: ${errorMessage}. Please review the raw audit data below.`;
+    console.error(`AI generation failed with model ${model}:`, error);
+    return null;
   }
 }
 
-export async function generateGitHubAISummary(auditResults: Record<string, unknown>): Promise<string> {
-  try {
-    const model = process.env.LLM_MODEL || 'gpt-4o-mini';
+export async function generateAISummary(auditResults: Record<string, unknown>): Promise<string> {
+  const userContent = `Analyze these web audit results and provide your expert assessment:\n\n${JSON.stringify(auditResults, null, 2)}`;
 
-    // Truncate results if too large for context window
-    let resultsStr = JSON.stringify(auditResults, null, 2);
-    if (resultsStr.length > 30000) {
-      // Keep summary and first 50 issues
-      const truncated = {
-        ...auditResults,
-        issues: (auditResults.issues as any[])?.slice(0, 50),
-        _note: 'Results truncated for AI analysis. Full results available in raw data.',
-      };
-      resultsStr = JSON.stringify(truncated, null, 2);
-    }
-
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: GITHUB_AUDIT_PROMPT },
-        {
-          role: 'user',
-          content: `Analyze this GitHub repository code audit and provide your expert review:\n\n${resultsStr}`,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 4000,
-    });
-
-    return response.choices[0]?.message?.content || 'AI summary generation failed - no response returned.';
-  } catch (error) {
-    console.error('GitHub AI Summary generation failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return `AI summary generation failed: ${errorMessage}. Please review the raw audit data below.`;
+  for (const model of FALLBACK_MODELS) {
+    const result = await tryGenerate(model, WEB_AUDIT_PROMPT, userContent, 2000);
+    if (result) return result;
   }
+  return '';
+}
+
+export async function generateGitHubAISummary(auditResults: Record<string, unknown>): Promise<string> {
+  // Truncate results if too large for context window
+  let resultsStr = JSON.stringify(auditResults, null, 2);
+  if (resultsStr.length > 30000) {
+    const truncated = {
+      ...auditResults,
+      issues: (auditResults.issues as any[])?.slice(0, 50),
+      _note: 'Results truncated for AI analysis. Full results available in raw data.',
+    };
+    resultsStr = JSON.stringify(truncated, null, 2);
+  }
+
+  const userContent = `Analyze this GitHub repository code audit and provide your expert review:\n\n${resultsStr}`;
+
+  for (const model of FALLBACK_MODELS) {
+    const result = await tryGenerate(model, GITHUB_AUDIT_PROMPT, userContent, 4000);
+    if (result) return result;
+  }
+  return '';
 }
