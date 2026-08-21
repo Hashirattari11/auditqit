@@ -291,7 +291,7 @@ export const db = {
   },
 
   async logApiKeyUsage(apiKeyId: string, endpoint: string) {
-    await supabase.from('api_usage').insert({ api_key_id: apiKeyId, endpoint }).catch(() => {});
+    await supabase.from('api_usage').insert({ api_key_id: apiKeyId, endpoint });
   },
 
   async getApiKeyUsageCount(apiKeyId: string, hours: number): Promise<number> {
