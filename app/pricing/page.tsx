@@ -11,6 +11,7 @@ export default async function PricingPage() {
     free: ['10 web audits/month', '10 GitHub audits/month', 'AI fix suggestions', 'Shareable links', 'Real-time progress', 'Community support'],
     pro: ['Unlimited audits', 'Everything in Free', 'PDF report download', 'Monitoring (3 sites)', 'API access (100 req/hour)', 'Priority processing', 'Email report delivery'],
     team: ['Everything in Pro', '5 team members', '500 shared audits/month', 'Bulk URL scanning', 'White-label reports', 'Monitoring (20 sites)', 'API access (500 req/hour)', 'Priority support'],
+    agency: ['Everything in Team', 'Unlimited clients', 'Branded client portal', 'Weekly auto-reports', 'Custom domain', 'Custom logo & colors', 'Priority support'],
   };
 
   return (
@@ -23,7 +24,7 @@ export default async function PricingPage() {
           <p className="text-text-secondary text-lg">Start free, upgrade when you need more.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {/* Free Plan */}
           <div className="card animate-fade-up">
             <h2 className="text-xl font-semibold mb-2">Free</h2>
@@ -81,6 +82,26 @@ export default async function PricingPage() {
               ))}
             </ul>
             <WaitlistForm plan="team" />
+          </div>
+
+          {/* Agency Plan */}
+          <div className="card relative border-accent-orange/30 shadow-lg shadow-accent-orange/5 animate-fade-up animate-delay-200" style={{ opacity: 0, animationFillMode: 'forwards' }}>
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold">White-Label</div>
+            <h2 className="text-xl font-semibold mb-2">Agency</h2>
+            <p className="text-text-secondary text-sm mb-6">For agencies with clients</p>
+            <div className="mb-6">
+              <span className="text-4xl font-bold">$99</span>
+              <span className="text-text-muted">/month</span>
+            </div>
+            <ul className="space-y-3 mb-8">
+              {features.agency.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm">
+                  <span className="text-accent-green">&#10003;</span>
+                  <span className="text-text-secondary">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <WaitlistForm plan="agency" />
           </div>
         </div>
       </div>

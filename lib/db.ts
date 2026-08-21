@@ -376,4 +376,116 @@ export const db = {
     await supabase.from('team_members').insert({ team_id: invite.team_id, user_id: userId, role: 'member' });
     return invite;
   },
+
+  // === Roasts ===
+  async createRoast(data: { url: string; domain: string; roast_text: string; perf_score: number; seo_score: number; sec_score: number; bug_count: number; user_id?: string }) {
+    const insertData: Record<string, unknown> = { ...data };
+    if (!data.user_id) delete insertData.user_id;
+    const { data: result, error } = await supabase.from('roasts').insert(insertData).select().single();
+    if (error) throw error;
+    return result;
+  },
+
+  async getRecentRoasts(limit = 5) {
+    const { data, error } = await supabase.from('roasts').select('id, domain, roast_text, perf_score, seo_score, sec_score, bug_count, created_at').eq('is_public', true).order('created_at', { ascending: false }).limit(limit);
+    if (error) return [];
+    return data || [];
+  },
+
+  async getRoast(id: string) {
+    const { data, error } = await supabase.from('roasts').select('*').eq('id', id).single();
+    if (error) return null;
+    return data;
+  },
+
+  // === VS Battles ===
+  async createVsBattle(data: { url1: string; url2: string; domain1: string; domain2: string; scores1: any; scores2: any; winner: string; commentary: string; user_id?: string }) {
+    const insertData: Record<string, unknown> = { ...data };
+    if (!data.user_id) delete insertData.user_id;
+    const { data: result, error } = await supabase.from('vs_battles').insert(insertData).select().single();
+    if (error) throw error;
+    return result;
+  },
+
+  async getVsBattle(id: string) {
+    const { data, error } = await supabase.from('vs_battles').select('*').eq('id', id).single();
+    if (error) return null;
+    return data;
+  },
+
+  async getRecentBattles(limit = 5) {
+    const { data, error } = await supabase.from('vs_battles').select('id, domain1, domain2, scores1, scores2, winner, commentary, created_at').eq('is_public', true).order('created_at', { ascending: false }).limit(limit);
+    if (error) return [];
+    return data || [];
+  },
+
+  // === Agencies ===
+  async createAgency(ownerId: string, name: string, logo?: string, primaryColor?: string) {
+    const { data, error } = await supabase.from('agencies').insert({ owner_id: ownerId, name, logo: logo || null, primary_color: primaryColor || '#6366F1' }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getAgency(ownerId: string) {
+    const { data, error } = await supabase.from('agencies').select('*').eq('owner_id', ownerId).single();
+    if (error) return null;
+    return data;
+  },
+
+  async getAgencyById(id: string) {
+    const { data, error } = await supabase.from('agencies').select('*').eq('id', id).single();
+    if (error) return null;
+    return data;
+  },
+
+  async updateAgency(id: string, updates: { name?: string; logo?: string; primary_color?: string; custom_domain?: string }) {
+    const { error } = await supabase.from('agencies').update(updates).eq('id', id);
+    if (error) throw error;
+  },
+
+  async addAgencyClient(agencyId: string, data: { name: string; email: string; website_url: string; password_hash?: string; notes?: string }) {
+    const { data: result, error } = await supabase.from('agency_clients').insert({ agency_id: agencyId, ...data }).select().single();
+    if (error) throw error;
+    return result;
+  },
+
+  async getAgencyClients(agencyId: string) {
+    const { data, error } = await supabase.from('agency_clients').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false });
+    if (error) return [];
+    return data || [];
+  },
+
+  async getAgencyClient(clientId: string) {
+    const { data, error } = await supabase.from('agency_clients').select('*').eq('id', clientId).single();
+    if (error) return null;
+    return data;
+  },
+
+  async updateAgencyClient(clientId: string, updates: { name?: string; email?: string; website_url?: string; notes?: string }) {
+    const { error } = await supabase.from('agency_clients').update(updates).eq('id', clientId);
+    if (error) throw error;
+  },
+
+  async deleteAgencyClient(clientId: string) {
+    const { error } = await supabase.from('agency_clients').delete().eq('id', clientId);
+    if (error) throw error;
+  },
+
+  async addClientAudit(clientId: string, auditId: string) {
+    const { data, error } = await supabase.from('client_audits').insert({ client_id: clientId, audit_id: auditId }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getClientAudits(clientId: string, limit = 20) {
+    const { data, error } = await supabase.from('client_audits').select('*, audits(*)').eq('client_id', clientId).order('created_at', { ascending: false }).limit(limit);
+    if (error) return [];
+    return data || [];
+  },
+
+  async getClientByPortal(agencyId: string, email: string) {
+    const { data, error } = await supabase.from('agency_clients').select('*').eq('agency_id', agencyId).eq('email', email).single();
+    if (error) return null;
+    return data;
+  },
 };
