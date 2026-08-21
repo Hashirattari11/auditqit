@@ -43,8 +43,12 @@ export async function POST(req: Request) {
     const sec2 = getScore(r2, 1);
     const seo2 = getScore(r2, 2);
 
-    const scores1 = { performance: 50, seo: seo1.score ?? 0, security: sec1.score ?? 0 };
-    const scores2 = { performance: 50, seo: seo2.score ?? 0, security: sec2.score ?? 0 };
+    const fetch1 = getScore(r1, 0);
+    const fetch2 = getScore(r2, 0);
+    const perf1 = fetch1.responseTime ? Math.max(10, Math.min(100, 100 - Math.floor(fetch1.responseTime / 100))) : 50;
+    const perf2 = fetch2.responseTime ? Math.max(10, Math.min(100, 100 - Math.floor(fetch2.responseTime / 100))) : 50;
+    const scores1 = { performance: perf1, seo: seo1.score ?? 0, security: sec1.score ?? 0 };
+    const scores2 = { performance: perf2, seo: seo2.score ?? 0, security: sec2.score ?? 0 };
 
     // Calculate winners
     const categories = ['performance', 'seo', 'security'] as const;

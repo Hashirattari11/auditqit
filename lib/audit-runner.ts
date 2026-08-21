@@ -75,7 +75,7 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
     // Step 6: JS Errors (Playwright)
     await db.updateAudit(auditId, { current_step: STEP_KEYS.errors });
     const errorsData = await withTimeout(runPlaywright(url), 30000, 'errors').catch(() => ({
-      consoleErrors: [], failedRequests: [], desktopScreenshot: null, mobileScreenshot: null, errorCount: 0, failedRequestCount: 0,
+      consoleErrors: [], failedRequests: [], frontendBugs: [], desktopScreenshot: null, mobileScreenshot: null, errorCount: 0, failedRequestCount: 0, frontendBugCount: 0,
     }));
 
     // Step 7: AI Analysis

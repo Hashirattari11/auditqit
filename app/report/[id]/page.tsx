@@ -233,18 +233,23 @@ export default function ReportPage() {
               {(['critical', 'high', 'medium', 'low'] as const).map(severity => {
                 const bugs = allBugs.filter(b => b.severity === severity);
                 if (bugs.length === 0) return null;
-                const colorMap: Record<string, string> = { critical: 'red', high: 'orange', medium: 'yellow', low: 'blue' };
-                const color = colorMap[severity];
+                const colorStyles: Record<string, { text: string; border: string; bg: string; bgLight: string }> = {
+                  critical: { text: '#ef4444', border: 'rgba(239,68,68,0.3)', bg: 'rgba(239,68,68,0.05)', bgLight: 'rgba(239,68,68,0.2)' },
+                  high: { text: '#f97316', border: 'rgba(249,115,22,0.3)', bg: 'rgba(249,115,22,0.05)', bgLight: 'rgba(249,115,22,0.2)' },
+                  medium: { text: '#eab308', border: 'rgba(234,179,8,0.3)', bg: 'rgba(234,179,8,0.05)', bgLight: 'rgba(234,179,8,0.2)' },
+                  low: { text: '#3b82f6', border: 'rgba(59,130,246,0.3)', bg: 'rgba(59,130,246,0.05)', bgLight: 'rgba(59,130,246,0.2)' },
+                };
+                const cs = colorStyles[severity] || colorStyles.low;
                 return (
                   <div key={severity} className="mb-4">
-                    <h3 className={`text-${color}-400 font-semibold mb-2 uppercase text-sm`}>{severity} ({bugs.length})</h3>
+                    <h3 className="font-semibold mb-2 uppercase text-sm" style={{ color: cs.text }}>{severity} ({bugs.length})</h3>
                     {bugs.map((bug, i) => (
-                      <div key={i} className={`border border-${color}-500/30 bg-${color}-500/5 rounded-lg p-4 mb-2`}>
+                      <div key={i} className="rounded-lg p-4 mb-2" style={{ border: `1px solid ${cs.border}`, backgroundColor: cs.bg }}>
                         <div className="flex items-start justify-between mb-2">
                           <span className="text-white font-medium">{bug.type}</span>
                           <div className="flex items-center gap-2">
                             {bug.category && <span className="text-xs bg-white/10 text-white/60 px-2 py-1 rounded">{bug.category}</span>}
-                            <span className={`text-xs bg-${color}-500/20 text-${color}-400 px-2 py-1 rounded`}>{bug.severity?.toUpperCase()}</span>
+                            <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: cs.bgLight, color: cs.text }}>{bug.severity?.toUpperCase()}</span>
                           </div>
                         </div>
                         {bug.element && <div className="bg-black/30 rounded p-2 mb-2 font-mono text-xs text-white/60 overflow-x-auto">{bug.element}</div>}

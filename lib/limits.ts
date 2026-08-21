@@ -58,7 +58,7 @@ export async function checkUserUsage(userId: string): Promise<UsageCheck> {
     return {
       allowed: false,
       current,
-      limit: FREE_LIMIT,
+      limit,
       plan: user.plan,
       reason: `You've used all ${FREE_LIMIT} free audits this month. Upgrade to Pro for unlimited audits.`,
     };
@@ -67,7 +67,7 @@ export async function checkUserUsage(userId: string): Promise<UsageCheck> {
   return {
     allowed: true,
     current,
-    limit: FREE_LIMIT,
+    limit,
     plan: user.plan,
   };
 }

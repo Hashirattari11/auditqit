@@ -58,7 +58,8 @@ export async function POST(req: Request) {
       runSEO(normalizedUrl, ''),
     ]);
 
-    const perfScore = 50;
+    const fetchVal = fetchResult.status === 'fulfilled' ? fetchResult.value : null;
+    const perfScore = fetchVal ? Math.max(10, Math.min(100, 100 - Math.floor(fetchVal.responseTime / 100))) : 50;
     const seoScore = seoResult.status === 'fulfilled' ? seoResult.value.score : 0;
     const secScore = secResult.status === 'fulfilled' ? secResult.value.score : 0;
 

@@ -145,9 +145,9 @@ export default function RoastPage() {
 
               {/* CTA */}
               <div className="mt-6 pt-6 border-t border-white/10">
-                <p className="text-white/50 text-sm">Want the full diagnosis?</p>
-                <Link href={`/report/${result.id}`} className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
-                  View Complete Audit Report →
+                <p className="text-white/50 text-sm">Want a full audit report?</p>
+                <Link href="/" className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                  Run a Complete Audit →
                 </Link>
               </div>
             </div>
