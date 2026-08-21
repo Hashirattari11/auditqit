@@ -22,9 +22,9 @@ export async function validateApiRequest(request: NextRequest): Promise<ApiAuthR
   const hourly = await db.getApiKeyUsageCount(result.id, 1);
   const daily = await db.getApiKeyUsageCount(result.id, 24);
 
-  if (hourly >= hourlyLimit) return { user: result.user, apiKey: result, error: `Rate limit: ${hourlyLimit}/hour`, status: 429 };
-  if (daily >= dailyLimit) return { user: result.user, apiKey: result, error: `Rate limit: ${dailyLimit}/day`, status: 429 };
+  if (hourly >= hourlyLimit) return { user: result, apiKey: result, error: `Rate limit: ${hourlyLimit}/hour`, status: 429 };
+  if (daily >= dailyLimit) return { user: result, apiKey: result, error: `Rate limit: ${dailyLimit}/day`, status: 429 };
 
   await db.logApiKeyUsage(result.id, request.url);
-  return { user: result.user, apiKey: result };
+  return { user: result, apiKey: result };
 }

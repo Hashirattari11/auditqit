@@ -32,6 +32,7 @@ export interface Audit {
   user_id: string | null;
   is_public: boolean;
   score: number;
+  overall_score: number;
   created_at: string;
   updated_at: string;
 }
@@ -87,7 +88,7 @@ export const db = {
   async getAudit(id: string): Promise<Audit | null> {
     const { data, error } = await supabase
       .from('audits')
-      .select('id, url, status, current_step, results, ai_summary, user_id, is_public, score, created_at, updated_at')
+      .select('id, url, status, current_step, results, ai_summary, user_id, is_public, score, overall_score, created_at, updated_at')
       .eq('id', id)
       .single();
 
