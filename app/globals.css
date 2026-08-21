@@ -202,9 +202,13 @@ body {
 
 /* Print styles */
 @media print {
-  body { background: white !important; color: black !important; }
-  .no-print { display: none !important; }
+  nav, .sidebar, button, .chat-widget, .no-print { display: none !important; }
   .print-only { display: block !important; }
+  body { background: white !important; color: black !important; }
+  .report-content, main { width: 100% !important; max-width: none !important; }
+  .score-circle, svg { border: 2px solid #333 !important; }
+  page-break-inside: avoid;
+  * { color: black !important; background: white !important; border-color: #ccc !important; }
 }
 @media screen {
   .print-only { display: none !important; }

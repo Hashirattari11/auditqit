@@ -1,180 +1,127 @@
+import * as cheerio from 'cheerio';
 import axios from 'axios';
 
-interface SEOCheckResult {
-  title: {
-    present: boolean;
-    content: string;
-    length: number;
-    optimalLength: boolean;
-  };
-  metaDescription: {
-    present: boolean;
-    content: string;
-    length: number;
-    optimalLength: boolean;
-  };
-  h1: {
-    count: number;
-    texts: string[];
-    hasExactlyOne: boolean;
-  };
-  imagesWithoutAlt: {
-    total: number;
-    withoutAlt: number;
-    ratio: number;
-    samples: string[];
-  };
-  canonical: {
-    present: boolean;
-    href: string | null;
-  };
-  robotsTxt: {
-    exists: boolean;
-    content: string | null;
-  };
-  sitemapXml: {
-    exists: boolean;
-    urls: number;
-  };
-  openGraph: {
-    title: boolean;
-    description: boolean;
-    image: boolean;
-    url: boolean;
-    type: boolean;
-  };
+export interface SEOResult {
   score: number;
+  issues: Array<{ severity: string; issue: string; fix: string; location?: string }>;
+  details: Record<string, any>;
 }
 
-export async function checkSEO(url: string, html: string): Promise<SEOCheckResult> {
-  const parsedUrl = new URL(url);
-  const origin = parsedUrl.origin;
+export async function runSEO(url: string, html: string): Promise<SEOResult> {
+  const issues: SEOResult['issues'] = [];
+  let score = 100;
 
-  // Title check
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const titleContent = titleMatch ? titleMatch[1].trim() : '';
+  if (!html) {
+    return { score: 0, issues: [{ severity: 'critical', issue: 'Could not fetch page HTML', fix: 'Check if URL is accessible' }], details: {} };
+  }
 
-  // Meta description check
-  const metaDescMatch = html.match(
-    /<meta\s+[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i
-  ) || html.match(/<meta\s+[^>]*content=["']([\s\S]*?)["'][^>]*name=["']description["']/i);
-  const metaDescContent = metaDescMatch ? metaDescMatch[1].trim() : '';
+  const $ = cheerio.load(html);
+  const details: Record<string, any> = {};
 
-  // H1 check
-  const h1Matches = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/gi) || [];
-  const h1Texts = h1Matches.map((h1) =>
-    h1.replace(/<[^>]*>/g, '').trim()
-  );
+  // Title tag
+  const title = $('title').text().trim();
+  details.title = title;
+  if (!title) {
+    issues.push({ severity: 'high', issue: 'Missing title tag', fix: 'Add <title>Your Page Title</title> in <head>', location: '<head>' });
+    score -= 20;
+  } else if (title.length < 30) {
+    issues.push({ severity: 'medium', issue: `Title too short (${title.length} chars)`, fix: 'Title should be 50-60 characters', location: '<title>' + title + '</title>' });
+    score -= 5;
+  } else if (title.length > 60) {
+    issues.push({ severity: 'low', issue: `Title too long (${title.length} chars)`, fix: 'Shorten title to under 60 characters', location: '<title>' + title + '</title>' });
+    score -= 5;
+  }
+
+  // Meta description
+  const metaDesc = $('meta[name="description"]').attr('content') ?? '';
+  details.metaDescription = metaDesc;
+  if (!metaDesc) {
+    issues.push({ severity: 'high', issue: 'Missing meta description', fix: 'Add <meta name="description" content="Your description">', location: '<head>' });
+    score -= 15;
+  } else if (metaDesc.length < 120) {
+    issues.push({ severity: 'low', issue: `Meta description too short (${metaDesc.length} chars)`, fix: 'Should be 150-160 characters' });
+    score -= 3;
+  }
+
+  // H1 tag
+  const h1s = $('h1');
+  details.h1Count = h1s.length;
+  if (h1s.length === 0) {
+    issues.push({ severity: 'high', issue: 'No H1 tag found', fix: 'Add exactly one <h1> tag with your main keyword', location: 'Page body' });
+    score -= 15;
+  } else if (h1s.length > 1) {
+    issues.push({ severity: 'medium', issue: `Multiple H1 tags found (${h1s.length})`, fix: 'Use only one <h1> per page', location: 'Page body' });
+    score -= 10;
+  }
 
   // Images without alt
-  const imgMatches = html.match(/<img[^>]*>/gi) || [];
-  const imagesWithoutAltList = imgMatches.filter(
-    (img) => !img.match(/alt=["'][^"']+["']/i)
-  );
+  const imgsWithoutAlt: string[] = [];
+  $('img').each((_, el) => {
+    const alt = $(el).attr('alt');
+    const src = $(el).attr('src') ?? 'unknown';
+    if (!alt && alt !== '') imgsWithoutAlt.push(src);
+  });
+  details.imagesWithoutAlt = imgsWithoutAlt.length;
+  if (imgsWithoutAlt.length > 0) {
+    issues.push({
+      severity: 'medium',
+      issue: `${imgsWithoutAlt.length} image(s) missing alt text`,
+      fix: 'Add descriptive alt attributes to all images',
+      location: imgsWithoutAlt.slice(0, 3).join(', '),
+    });
+    score -= Math.min(imgsWithoutAlt.length * 3, 15);
+  }
 
   // Canonical
-  const canonicalMatch = html.match(
-    /<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([\s\S]*?)["']/i
-  ) || html.match(
-    /<link\s+[^>]*href=["']([\s\S]*?)["'][^>]*rel=["']canonical["']/i
-  );
+  const canonical = $('link[rel="canonical"]').attr('href');
+  details.canonical = canonical ?? null;
+  if (!canonical) {
+    issues.push({ severity: 'low', issue: 'No canonical tag', fix: 'Add <link rel="canonical" href="https://yoursite.com/page">', location: '<head>' });
+    score -= 5;
+  }
 
   // Open Graph
-  const ogCheck = (prop: string) =>
-    new RegExp(`property=["']og:${prop}["']`, 'i').test(html) ||
-    new RegExp(`name=["']og:${prop}["']`, 'i').test(html);
-
-  // Check robots.txt and sitemap.xml
-  let robotsTxtExists = false;
-  let robotsTxtContent: string | null = null;
-  let sitemapExists = false;
-  let sitemapUrls = 0;
-
-  try {
-    const robotsResponse = await axios.get(`${origin}/robots.txt`, {
-      timeout: 5000,
-      validateStatus: () => true,
-    });
-    robotsTxtExists = robotsResponse.status === 200;
-    robotsTxtContent = robotsTxtExists ? robotsResponse.data : null;
-  } catch {
-    // robots.txt doesn't exist
+  const ogTitle = $('meta[property="og:title"]').attr('content');
+  const ogImage = $('meta[property="og:image"]').attr('content');
+  details.hasOpenGraph = !!(ogTitle && ogImage);
+  if (!ogTitle) {
+    issues.push({ severity: 'low', issue: 'Missing Open Graph tags', fix: 'Add og:title, og:description, og:image for social sharing', location: '<head>' });
+    score -= 5;
   }
 
+  // Viewport meta
+  const viewport = $('meta[name="viewport"]').attr('content');
+  details.hasViewport = !!viewport;
+  if (!viewport) {
+    issues.push({ severity: 'high', issue: 'Missing viewport meta tag', fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1">', location: '<head>' });
+    score -= 10;
+  }
+
+  // robots.txt
   try {
-    const sitemapResponse = await axios.get(`${origin}/sitemap.xml`, {
-      timeout: 5000,
-      validateStatus: () => true,
-    });
-    sitemapExists = sitemapResponse.status === 200;
-    if (sitemapExists) {
-      const urlCount = sitemapResponse.data.match(/<url>/gi);
-      sitemapUrls = urlCount ? urlCount.length : 0;
+    const robotsUrl = new URL('/robots.txt', url).href;
+    const robotsRes = await axios.get(robotsUrl, { timeout: 5000, validateStatus: () => true });
+    details.hasRobotsTxt = robotsRes.status === 200;
+    if (robotsRes.status !== 200) {
+      issues.push({ severity: 'low', issue: 'No robots.txt found', fix: 'Create a robots.txt file at the root of your domain', location: '/robots.txt' });
+      score -= 5;
     }
-  } catch {
-    // sitemap.xml doesn't exist
-  }
+  } catch { details.hasRobotsTxt = false; }
 
-  // Calculate SEO score
-  let score = 0;
-  if (titleContent) score += 15;
-  if (titleContent.length >= 50 && titleContent.length <= 60) score += 5;
-  if (metaDescContent) score += 15;
-  if (metaDescContent.length >= 120 && metaDescContent.length <= 160) score += 5;
-  if (h1Texts.length === 1) score += 10;
-  if (imagesWithoutAltList.length === 0 && imgMatches.length > 0) score += 10;
-  else if (imagesWithoutAltList.length < imgMatches.length) score += 5;
-  if (canonicalMatch) score += 5;
-  if (robotsTxtExists) score += 10;
-  if (sitemapExists) score += 10;
-  if (ogCheck('title') && ogCheck('description') && ogCheck('image')) score += 15;
+  // sitemap.xml
+  try {
+    const sitemapUrl = new URL('/sitemap.xml', url).href;
+    const sitemapRes = await axios.get(sitemapUrl, { timeout: 5000, validateStatus: () => true });
+    details.hasSitemap = sitemapRes.status === 200;
+    if (sitemapRes.status !== 200) {
+      issues.push({ severity: 'low', issue: 'No sitemap.xml found', fix: 'Create and submit a sitemap.xml to help search engines crawl your site', location: '/sitemap.xml' });
+      score -= 5;
+    }
+  } catch { details.hasSitemap = false; }
 
   return {
-    title: {
-      present: !!titleContent,
-      content: titleContent,
-      length: titleContent.length,
-      optimalLength: titleContent.length >= 50 && titleContent.length <= 60,
-    },
-    metaDescription: {
-      present: !!metaDescContent,
-      content: metaDescContent,
-      length: metaDescContent.length,
-      optimalLength: metaDescContent.length >= 120 && metaDescContent.length <= 160,
-    },
-    h1: {
-      count: h1Texts.length,
-      texts: h1Texts,
-      hasExactlyOne: h1Texts.length === 1,
-    },
-    imagesWithoutAlt: {
-      total: imgMatches.length,
-      withoutAlt: imagesWithoutAltList.length,
-      ratio: imgMatches.length > 0 ? imagesWithoutAltList.length / imgMatches.length : 0,
-      samples: imagesWithoutAltList.slice(0, 5).map((img) => {
-        const srcMatch = img.match(/src=["']([^"']*)["']/i);
-        return srcMatch ? srcMatch[1] : 'unknown';
-      }),
-    },
-    canonical: {
-      present: !!canonicalMatch,
-      href: canonicalMatch ? canonicalMatch[1] : null,
-    },
-    robotsTxt: {
-      exists: robotsTxtExists,
-      content: robotsTxtContent,
-    },
-    sitemapXml: {
-      exists: sitemapExists,
-      urls: sitemapUrls,
-    },
-    openGraph: {
-      title: ogCheck('title'),
-      description: ogCheck('description'),
-      image: ogCheck('image'),
-      url: ogCheck('url'),
-      type: ogCheck('type'),
-    },
-    score: Math.min(score, 100),
+    score: Math.max(0, score),
+    issues,
+    details,
   };
 }

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import ReportChat from '@/components/ReportChat';
-import ScoreTimeline from '@/components/ScoreTimeline';
+import AuditProgress from '@/components/AuditProgress';
 
 interface AuditData {
   id: string;
@@ -14,144 +13,116 @@ interface AuditData {
   createdAt: string;
 }
 
-interface AuditStatus {
-  id: string;
-  url: string;
-  status: string;
-  currentStep: string | null;
-  createdAt: string;
-}
-
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
   const auditId = params.id as string;
 
-  const [status, setStatus] = useState<AuditStatus | null>(null);
   const [report, setReport] = useState<AuditData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [polling, setPolling] = useState(true);
+  const [status, setStatus] = useState<string>('pending');
 
-  const pollStatus = useCallback(async () => {
+  const pollCount = useRef(0);
+  const MAX_POLLS = 90;
+
+  const fetchStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/audit/${auditId}/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
+      const res = await fetch(`/api/audit/${auditId}/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setStatus(data.status);
 
-        if (data.status === 'completed' || data.status === 'failed') {
-          setPolling(false);
-          // Use results directly from status endpoint (no separate report fetch needed)
-          if (data.results && Object.keys(data.results).length > 0) {
-            setReport({
-              id: data.id,
-              url: data.url,
-              status: data.status,
-              results: data.results,
-              aiSummary: data.aiSummary || null,
-              createdAt: data.createdAt,
-            });
-          } else {
-            // Fallback: try the report endpoint
-            const reportResponse = await fetch(`/api/audit/${auditId}/report`);
-            if (reportResponse.ok) {
-              const reportData = await reportResponse.json();
-              setReport(reportData);
-            }
-          }
+      if (data.status === 'completed' || data.status === 'failed') {
+        if (data.results && Object.keys(data.results).length > 0) {
+          setReport({
+            id: data.id,
+            url: data.url,
+            status: data.status,
+            results: data.results,
+            aiSummary: data.aiSummary || null,
+            createdAt: data.createdAt,
+          });
         }
+        setLoading(false);
+        return true; // done polling
       }
-    } catch {
-      // Retry on next poll
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* retry */ }
+    return false;
   }, [auditId]);
 
   useEffect(() => {
-    pollStatus();
-  }, [pollStatus]);
+    fetchStatus();
+  }, [fetchStatus]);
 
   useEffect(() => {
-    if (!polling) return;
+    if (status === 'completed' || status === 'failed') return;
 
-    const interval = setInterval(pollStatus, 2000);
+    const interval = setInterval(async () => {
+      pollCount.current++;
+      if (pollCount.current >= MAX_POLLS) {
+        clearInterval(interval);
+        setStatus('failed');
+        setLoading(false);
+        return;
+      }
+      const done = await fetchStatus();
+      if (done) clearInterval(interval);
+    }, 2000);
+
     return () => clearInterval(interval);
-  }, [polling, pollStatus]);
+  }, [status, fetchStatus]);
+
+  const handleRerun = async () => {
+    try {
+      await fetch(`/api/audit/${auditId}/rerun`, { method: 'POST' });
+      setReport(null);
+      setLoading(true);
+      setStatus('pending');
+      pollCount.current = 0;
+      fetchStatus();
+    } catch { /* ignore */ }
+  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     alert('Link copied to clipboard!');
   };
 
-  const handlePrint = async () => {
-    // Generate PDF client-side using the browser's print dialog
-    // First, find or load the PDF endpoint
-    try {
-      const res = await fetch(`/api/report/${auditId}/pdf`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `audit-report-${auditId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-      } else {
-        // Fallback: use browser print
-        window.print();
-      }
-    } catch {
-      window.print();
-    }
+  const handlePrint = () => {
+    window.print();
   };
 
-  const handleRerun = async () => {
-    try {
-      await fetch(`/api/audit/${auditId}/rerun`, { method: 'POST' });
-      setReport(null);
-      setPolling(true);
-      setStatus((prev) => prev ? { ...prev, status: 'pending', currentStep: '' } : prev);
-      // The status endpoint will pick up the pending audit and run it
-      pollStatus();
-    } catch {
-      // ignore
-    }
-  };
-
-  // Loading / Progress state
-  if (loading || (status && (status.status === 'pending' || status.status === 'running'))) {
+  // Progress view
+  if (loading || status === 'pending' || status === 'running') {
     return (
-      <ProgressView
-        status={status}
-        url={status?.url || ''}
-      />
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto px-4">
+          <h1 className="text-2xl font-bold mb-2">Analyzing Website</h1>
+          <p className="text-text-muted text-sm mb-8 truncate max-w-md mx-auto">
+            {report?.url || 'Loading...'}
+          </p>
+          <AuditProgress auditId={auditId} onRerun={handleRerun} />
+          <p className="text-text-muted text-xs mt-8">This usually takes 30-90 seconds</p>
+        </div>
+      </main>
     );
   }
 
-  if (status && status.status === 'failed' && !report) {
+  // Failed view
+  if (status === 'failed' && !report) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="text-6xl mb-4">❌</div>
           <h1 className="text-2xl font-bold mb-2">Audit Failed</h1>
           <p className="text-text-secondary mb-6">
-            The audit for <span className="text-white">{status.url}</span> failed. 
-            This might be because the website is unreachable or timed out.
+            The audit failed. This might be because the website is unreachable or timed out.
           </p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={handleRerun}
-              className="px-6 py-3 rounded-xl bg-accent-purple text-white font-semibold hover:opacity-90 transition-opacity"
-            >
+            <button onClick={handleRerun} className="px-6 py-3 rounded-xl bg-accent-purple text-white font-semibold hover:opacity-90">
               Re-run Audit
             </button>
-            <button
-              onClick={() => router.push('/')}
-              className="px-6 py-3 rounded-xl bg-bg-surface border border-border-subtle text-text-primary font-semibold hover:opacity-90 transition-opacity"
-            >
+            <button onClick={() => router.push('/')} className="px-6 py-3 rounded-xl bg-bg-surface border border-border-subtle text-text-primary font-semibold hover:opacity-90">
               Try Another URL
             </button>
           </div>
@@ -168,49 +139,38 @@ export default function ReportPage() {
     );
   }
 
+  const r = report.results;
+  const overallScore = r?.overallScore ?? 0;
+  const security = r?.security;
+  const seo = r?.seo;
+  const perf = r?.performance;
+  const links = r?.links;
+  const errors = r?.errors;
+  const ai = r?.ai;
+
   return (
     <main className="min-h-screen pb-20">
-      {/* Header */}
+      {/* Header — no-print */}
       <header className="border-b border-border-subtle sticky top-0 bg-bg/95 backdrop-blur z-50 no-print">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div className="w-7 h-7 bg-gradient-to-br from-accent-blue to-accent-purple rounded-lg flex items-center justify-center text-xs font-bold">
-              A
-            </div>
+          <button onClick={() => router.push('/')} className="flex items-center gap-2 hover:opacity-80">
+            <div className="w-7 h-7 bg-gradient-to-br from-accent-blue to-accent-purple rounded-lg flex items-center justify-center text-xs font-bold">A</div>
             <span className="font-bold">AuditIQ</span>
           </button>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleRerun}
-              className="px-4 py-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-sm hover:bg-accent-purple/20 transition-colors"
-            >
-              Re-run Audit
-            </button>
-            <button
-              onClick={handleShare}
-              className="px-4 py-2 rounded-lg bg-bg-surface border border-border-subtle text-sm hover:bg-bg-surface transition-colors"
-            >
-              Share Report
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm hover:bg-accent-blue/20 transition-colors"
-            >
-              Download PDF
-            </button>
+            <button onClick={handleRerun} className="px-4 py-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-sm hover:bg-accent-purple/20">Re-run</button>
+            <button onClick={handleShare} className="px-4 py-2 rounded-lg bg-bg-surface border border-border-subtle text-sm">Share</button>
+            <button onClick={handlePrint} className="px-4 py-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm hover:bg-accent-blue/20">Download PDF</button>
           </div>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-4 pt-8">
-        {/* URL + Overall Score */}
+        {/* 1. Header — URL + Overall Score */}
         <div className="mb-8">
           <p className="text-text-muted text-sm mb-1">{report.url}</p>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <OverallScore results={report.results} />
+            <ScoreCircle score={overallScore} size={128} />
             <div className="flex-1">
               <p className="text-text-muted text-sm">
                 Audited on {new Date(report.createdAt).toLocaleString()}
@@ -219,55 +179,219 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* AI Summary - Most Prominent */}
-        {report.aiSummary && (
-          <AISummary summary={report.aiSummary} />
+        {/* 2. AI Executive Summary */}
+        {ai?.summary && (
+          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-accent-purple/10 via-bg-surface/50 to-accent-blue/10 border border-accent-purple/20">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xl">🤖</span>
+              <h2 className="text-lg font-bold">AI Analysis</h2>
+            </div>
+            <div className="text-text-primary whitespace-pre-wrap leading-relaxed text-sm">
+              {ai.summary}
+            </div>
+          </div>
         )}
 
-        {/* Performance Metrics */}
-        {report.results?.lighthouse && (
-          <PerformanceMetrics data={report.results.lighthouse} />
+        {/* 3. Score Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <ScoreCard label="Performance" score={perf?.performance ?? 0} icon="⚡" />
+          <ScoreCard label="SEO" score={seo?.score ?? 0} icon="🔍" />
+          <ScoreCard label="Security" score={security?.score ?? 0} icon="🔒" />
+          <ScoreCard label="Overall" score={overallScore} icon="📊" />
+        </div>
+
+        {/* 4. Critical Issues */}
+        {ai?.allIssues?.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>🚨</span> Issues Found ({ai.allIssues.length})
+            </h2>
+            <div className="space-y-3">
+              {ai.allIssues.slice(0, 15).map((issue: any, i: number) => (
+                <div key={i} className="border border-red-500/30 bg-red-500/5 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-white text-xs px-2 py-1 rounded ${
+                      issue.severity === 'critical' ? 'bg-red-600' :
+                      issue.severity === 'high' ? 'bg-red-500' :
+                      issue.severity === 'medium' ? 'bg-yellow-500' :
+                      'bg-blue-500'
+                    }`}>
+                      {issue.severity?.toUpperCase()}
+                    </span>
+                    <span className="text-sm text-white/60">{issue.category || issue.issue}</span>
+                  </div>
+                  <h3 className="text-white font-medium mb-1">{issue.issue}</h3>
+                  {issue.description && (
+                    <p className="text-white/60 text-sm mb-2">{issue.description}</p>
+                  )}
+                  {issue.fix && (
+                    <div className="bg-white/5 rounded p-3">
+                      <span className="text-green-400 text-xs font-mono">💡 Fix: </span>
+                      <span className="text-white/80 text-sm">{issue.fix}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Security Headers */}
-        {report.results?.headers && (
-          <SecurityHeaders data={report.results.headers} />
+        {/* 5. Performance Metrics */}
+        {perf && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><span>⚡</span> Performance Metrics</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <MetricCard label="LCP" value={perf.metrics?.lcp ? (perf.metrics.lcp / 1000).toFixed(2) + 's' : 'N/A'}
+                color={perf.metrics?.lcp ? (perf.metrics.lcp < 2500 ? 'green' : perf.metrics.lcp < 4000 ? 'yellow' : 'red') : 'gray'} />
+              <MetricCard label="FCP" value={perf.metrics?.fcp ? (perf.metrics.fcp / 1000).toFixed(2) + 's' : 'N/A'}
+                color={perf.metrics?.fcp ? (perf.metrics.fcp < 1800 ? 'green' : perf.metrics.fcp < 3000 ? 'yellow' : 'red') : 'gray'} />
+              <MetricCard label="CLS" value={perf.metrics?.cls != null ? perf.metrics.cls.toFixed(3) : 'N/A'}
+                color={perf.metrics?.cls != null ? (perf.metrics.cls < 0.1 ? 'green' : perf.metrics.cls < 0.25 ? 'yellow' : 'red') : 'gray'} />
+              <MetricCard label="TBT" value={perf.metrics?.tbt ? perf.metrics.tbt + 'ms' : 'N/A'}
+                color={perf.metrics?.tbt ? (perf.metrics.tbt < 200 ? 'green' : perf.metrics.tbt < 600 ? 'yellow' : 'red') : 'gray'} />
+              <MetricCard label="TTFB" value={perf.metrics?.ttfb ? (perf.metrics.ttfb / 1000).toFixed(2) + 's' : 'N/A'}
+                color={perf.metrics?.ttfb ? (perf.metrics.ttfb < 800 ? 'green' : perf.metrics.ttfb < 1800 ? 'yellow' : 'red') : 'gray'} />
+              <MetricCard label="Accessibility" value={perf.accessibility ? perf.accessibility + '/100' : 'N/A'}
+                color={perf.accessibility ? (perf.accessibility >= 80 ? 'green' : perf.accessibility >= 50 ? 'yellow' : 'red') : 'gray'} />
+            </div>
+          </div>
         )}
 
-        {/* Console Errors */}
-        {report.results?.playwright && (
-          <ConsoleErrors data={report.results.playwright} />
+        {/* 6. Security Headers Table */}
+        {security && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><span>🔒</span> Security Headers (Score: {security.score}/100)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-subtle">
+                    <th className="text-left py-2 text-text-muted font-medium">Header</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Status</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { name: 'strict-transport-security', label: 'HSTS', desc: 'Enforces HTTPS' },
+                    { name: 'content-security-policy', label: 'CSP', desc: 'Prevents XSS' },
+                    { name: 'x-frame-options', label: 'X-Frame-Options', desc: 'Prevents clickjacking' },
+                    { name: 'x-content-type-options', label: 'X-Content-Type-Options', desc: 'Prevents MIME sniffing' },
+                    { name: 'referrer-policy', label: 'Referrer-Policy', desc: 'Controls referrer info' },
+                    { name: 'permissions-policy', label: 'Permissions-Policy', desc: 'Controls browser features' },
+                    { name: 'x-xss-protection', label: 'X-XSS-Protection', desc: 'Legacy XSS protection' },
+                  ].map((h) => (
+                    <tr key={h.name} className="border-b border-border-subtle/50">
+                      <td className="py-2 font-mono text-xs">{h.label}</td>
+                      <td className="py-2">
+                        {security.headers?.[h.name] ? (
+                          <span className="text-green-400">✓ Present</span>
+                        ) : (
+                          <span className="text-red-400">✗ Missing</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-text-muted">{h.desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex gap-6 text-sm text-text-secondary">
+              <span>HTTPS: {security.isHttps ? '✅ Yes' : '❌ No'}</span>
+              <span>Status: {security.statusCode}</span>
+            </div>
+          </div>
         )}
 
-        {/* Broken Links */}
-        {report.results?.links && (
-          <BrokenLinks data={report.results.links} />
+        {/* 7. SEO Checklist */}
+        {seo && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><span>🔍</span> SEO Checklist (Score: {seo.score}/100)</h2>
+            <div className="space-y-2">
+              {[
+                { label: 'Title Tag', detail: seo.details?.title || 'Missing', pass: seo.details?.title && seo.details.title.length >= 30 },
+                { label: 'Meta Description', detail: seo.details?.metaDescription ? 'Present (' + seo.details.metaDescription.length + ' chars)' : 'Missing', pass: !!seo.details?.metaDescription },
+                { label: 'H1 Tag', detail: seo.details?.h1Count ? seo.details.h1Count + ' found' : 'Missing', pass: seo.details?.h1Count === 1 },
+                { label: 'Viewport Meta', detail: seo.details?.hasViewport ? 'Present' : 'Missing', pass: !!seo.details?.hasViewport },
+                { label: 'Canonical Tag', detail: seo.details?.canonical ? 'Present' : 'Missing', pass: !!seo.details?.canonical },
+                { label: 'Open Graph', detail: seo.details?.hasOpenGraph ? 'Present' : 'Missing', pass: !!seo.details?.hasOpenGraph },
+                { label: 'robots.txt', detail: seo.details?.hasRobotsTxt ? 'Exists' : 'Not found', pass: !!seo.details?.hasRobotsTxt },
+                { label: 'sitemap.xml', detail: seo.details?.hasSitemap ? 'Exists' : 'Not found', pass: !!seo.details?.hasSitemap },
+              ].map((check) => (
+                <div key={check.label} className={`flex items-center gap-3 p-3 rounded-lg border ${check.pass ? 'bg-green-500/5 border-green-500/20' : 'bg-yellow-500/5 border-yellow-500/20'}`}>
+                  <span>{check.pass ? '✅' : '⚠️'}</span>
+                  <span className="font-medium text-sm">{check.label}</span>
+                  <span className="text-text-muted text-sm ml-auto">{check.detail}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* SEO Checklist */}
-        {report.results?.seo && (
-          <SEOChecklist data={report.results.seo} />
+        {/* 8. Broken Links */}
+        {links && links.brokenCount > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>🔗</span> Broken Links ({links.brokenCount} found)
+            </h2>
+            <div className="space-y-2">
+              {links.broken.map((link: any, i: number) => (
+                <div key={i} className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-red-400">{link.status || 'ERR'}</span>
+                    <span className="text-sm truncate flex-1">{link.url}</span>
+                  </div>
+                  {link.fix && <p className="text-text-muted text-xs mt-1">{link.fix}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Screenshots */}
-        {report.results?.playwright?.screenshots && (
-          <Screenshots data={report.results.playwright.screenshots} />
+        {/* 9. JavaScript Errors */}
+        {errors && (errors.errorCount > 0 || errors.failedRequestCount > 0) && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>🐛</span> JavaScript Errors ({errors.errorCount} console, {errors.failedRequestCount} network)
+            </h2>
+            <div className="space-y-2">
+              {errors.consoleErrors?.slice(0, 10).map((e: any, i: number) => (
+                <div key={i} className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                  <p className="font-mono text-xs text-red-400">console.error</p>
+                  <p className="text-sm mt-1">{e.message}</p>
+                </div>
+              ))}
+              {errors.failedRequests?.slice(0, 10).map((r: any, i: number) => (
+                <div key={`net-${i}`} className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                  <p className="font-mono text-xs text-yellow-400">Failed: {r.resourceType}</p>
+                  <p className="text-sm mt-1 truncate">{r.url}</p>
+                  <p className="text-text-muted text-xs mt-1">{r.error}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Score Timeline */}
-        <ScoreTimeline url={report.url} currentId={auditId} />
-
-        {/* Errors from failed steps */}
-        {report.results?.errors?.failedSteps?.length > 0 && (
-          <FailedSteps steps={report.results.errors.failedSteps} />
+        {/* 10. Screenshots */}
+        {errors && (errors.desktopScreenshot || errors.mobileScreenshot) && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><span>📸</span> Screenshots</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {errors.desktopScreenshot && (
+                <div className="rounded-xl overflow-hidden border border-border-subtle">
+                  <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">Desktop (1280×720)</div>
+                  <img src={`data:image/jpeg;base64,${errors.desktopScreenshot}`} alt="Desktop screenshot" className="w-full" />
+                </div>
+              )}
+              {errors.mobileScreenshot && (
+                <div className="rounded-xl overflow-hidden border border-border-subtle">
+                  <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">Mobile (375×812)</div>
+                  <img src={`data:image/jpeg;base64,${errors.mobileScreenshot}`} alt="Mobile screenshot" className="w-full max-w-xs mx-auto" />
+                </div>
+              )}
+            </div>
+          </div>
         )}
-
-        {/* Make Public Toggle */}
-        <MakePublicToggle auditId={auditId} />
       </div>
-
-      {/* Floating AI Chat */}
-      <ReportChat auditId={auditId} />
     </main>
   );
 }
@@ -276,132 +400,32 @@ export default function ReportPage() {
 // SUB-COMPONENTS
 // ============================================================
 
-function ProgressView({ status, url }: { status: AuditStatus | null; url: string }) {
-  const steps = [
-    { key: 'fetch', label: 'Fetching page content...', icon: '📥' },
-    { key: 'headers', label: 'Checking security headers', icon: '🔒' },
-    { key: 'seo', label: 'Analyzing SEO', icon: '🔍' },
-    { key: 'links', label: 'Scanning links', icon: '🔗' },
-    { key: 'lighthouse', label: 'Running performance audit', icon: '⚡' },
-    { key: 'playwright', label: 'Checking for errors', icon: '🐛' },
-    { key: 'ai', label: 'Generating AI analysis', icon: '🤖' },
-  ];
-
-  const currentStepKey = status?.currentStep || '';
-  const currentIndex = steps.findIndex((s) => s.key === currentStepKey);
-
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center max-w-lg mx-auto px-4">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center">
-          <svg className="animate-spin h-8 w-8 text-white" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
-
-        <h1 className="text-2xl font-bold mb-2">Analyzing Website</h1>
-        <p className="text-text-muted text-sm mb-8 truncate max-w-md mx-auto">{url}</p>
-
-        <div className="space-y-3 text-left max-w-sm mx-auto">
-          {steps.map((step, index) => {
-            const isActive = index === currentIndex;
-            const isDone = currentIndex >= 0 && index < currentIndex;
-
-            return (
-              <div
-                key={step.key}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-accent-blue/10 border border-accent-blue/20'
-                    : isDone
-                    ? 'opacity-50'
-                    : 'opacity-30'
-                }`}
-              >
-                <span className="text-lg">{isDone ? '✅' : isActive ? step.icon : '⏳'}</span>
-                <span className={`text-sm ${isActive ? 'text-white font-medium' : 'text-text-secondary'}`}>
-                  {step.label}
-                </span>
-                {isActive && (
-                  <div className="ml-auto">
-                    <div className="w-4 h-4 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <p className="text-text-muted text-xs mt-8">
-          This usually takes 30-60 seconds
-        </p>
-      </div>
-    </main>
-  );
-}
-
-function OverallScore({ results }: { results: any }) {
-  // Calculate overall score from available data
-  let score = 0;
-  let count = 0;
-
-  if (results?.lighthouse?.performance) {
-    score += results.lighthouse.performance;
-    count++;
-  }
-  if (results?.lighthouse?.seo) {
-    score += results.lighthouse.seo;
-    count++;
-  }
-  if (results?.lighthouse?.accessibility) {
-    score += results.lighthouse.accessibility;
-    count++;
-  }
-  if (results?.seo?.score !== undefined) {
-    score += results.seo.score;
-    count++;
-  }
-
-  const overallScore = count > 0 ? Math.round(score / count) : 0;
-
+function ScoreCircle({ score, size = 128 }: { score: number; size?: number }) {
   const getColor = (s: number) => {
-    if (s >= 80) return 'text-accent-green';
-    if (s >= 50) return 'text-accent-yellow';
-    return 'text-accent-red';
-  };
-
-  const getRingColor = (s: number) => {
     if (s >= 80) return '#22c55e';
     if (s >= 50) return '#eab308';
     return '#ef4444';
   };
-
-  const circumference = 2 * Math.PI * 45;
-  const dashoffset = circumference - (overallScore / 100) * circumference;
+  const getTextColor = (s: number) => {
+    if (s >= 80) return 'text-green-400';
+    if (s >= 50) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+  const r = size / 2 - 8;
+  const circumference = 2 * Math.PI * r;
+  const dashoffset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="relative w-32 h-32 flex-shrink-0">
-      <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="45" fill="none" stroke="#1e293b" strokeWidth="8" />
-        <circle
-          cx="50"
-          cy="50"
-          r="45"
-          fill="none"
-          stroke={getRingColor(overallScore)}
-          strokeWidth="8"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashoffset}
-          strokeLinecap="round"
-          className="transition-all duration-1000"
-        />
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg className="w-full h-full -rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e293b" strokeWidth="8" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={getColor(score)} strokeWidth="8"
+          strokeDasharray={circumference} strokeDashoffset={dashoffset} strokeLinecap="round"
+          className="transition-all duration-1000" />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <span className={`text-3xl font-bold ${getColor(overallScore)}`}>
-            {overallScore}
-          </span>
+          <span className={`font-bold ${getTextColor(score)}`} style={{ fontSize: size * 0.25 }}>{score}</span>
           <span className="block text-text-muted text-xs">/100</span>
         </div>
       </div>
@@ -409,523 +433,34 @@ function OverallScore({ results }: { results: any }) {
   );
 }
 
-function AISummary({ summary }: { summary: string }) {
-  return (
-    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-accent-purple/10 via-bg-surface/50 to-accent-blue/10 border border-accent-purple/20">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">🤖</span>
-        <h2 className="text-lg font-bold">AI Analysis</h2>
-      </div>
-      <div className="prose prose-invert prose-sm max-w-none">
-        <div className="text-text-primary whitespace-pre-wrap leading-relaxed">
-          {summary}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PerformanceMetrics({ data }: { data: any }) {
-  if (!data) return null;
-  const metricsData = data.metrics || {};
-
-  const metrics = [
-    {
-      label: 'Performance',
-      value: data.performance,
-      unit: '/100',
-      isScore: true,
-    },
-    {
-      label: 'Accessibility',
-      value: data.accessibility,
-      unit: '/100',
-      isScore: true,
-    },
-    { label: 'SEO', value: data.seo, unit: '/100', isScore: true },
-    {
-      label: 'Best Practices',
-      value: data.bestPractices,
-      unit: '/100',
-      isScore: true,
-    },
-    {
-      label: 'LCP',
-      value: metricsData.lcp ? (metricsData.lcp / 1000).toFixed(2) : 'N/A',
-      unit: metricsData.lcp ? 's' : '',
-      bar: metricsData.lcp ? Math.min(metricsData.lcp / 4000, 1) : 0,
-      threshold: { good: 2500, bad: 4000, value: metricsData.lcp },
-    },
-    {
-      label: 'FCP',
-      value: metricsData.fcp ? (metricsData.fcp / 1000).toFixed(2) : 'N/A',
-      unit: metricsData.fcp ? 's' : '',
-      bar: metricsData.fcp ? Math.min(metricsData.fcp / 3000, 1) : 0,
-      threshold: { good: 1800, bad: 3000, value: metricsData.fcp },
-    },
-    {
-      label: 'CLS',
-      value: metricsData.cls !== null && metricsData.cls !== undefined ? metricsData.cls.toFixed(3) : 'N/A',
-      unit: '',
-      bar: metricsData.cls !== null && metricsData.cls !== undefined ? Math.min(metricsData.cls / 0.25, 1) : 0,
-      threshold: { good: 0.1, bad: 0.25, value: metricsData.cls },
-    },
-    {
-      label: 'TBT',
-      value: metricsData.tbt ? metricsData.tbt.toFixed(0) : 'N/A',
-      unit: metricsData.tbt ? 'ms' : '',
-      bar: metricsData.tbt ? Math.min(metricsData.tbt / 600, 1) : 0,
-      threshold: { good: 200, bad: 600, value: metricsData.tbt },
-    },
-    {
-      label: 'TTFB',
-      value: metricsData.ttfb ? (metricsData.ttfb / 1000).toFixed(2) : 'N/A',
-      unit: metricsData.ttfb ? 's' : '',
-      bar: metricsData.ttfb ? Math.min(metricsData.ttfb / 1800, 1) : 0,
-      threshold: { good: 800, bad: 1800, value: metricsData.ttfb },
-    },
-  ];
-
-  const getScoreColor = (v: number) => {
-    if (v >= 80) return 'bg-accent-green';
-    if (v >= 50) return 'bg-accent-yellow';
-    return 'bg-accent-red';
-  };
-
-  const getBarColor = (threshold: any, value: number) => {
-    if (value <= threshold.good) return 'bg-accent-green';
-    if (value <= threshold.bad) return 'bg-accent-yellow';
-    return 'bg-accent-red';
+function ScoreCard({ label, score, icon }: { label: string; score: number; icon: string }) {
+  const getColor = (s: number) => {
+    if (s >= 80) return 'text-green-400 bg-green-500/10 border-green-500/20';
+    if (s >= 50) return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+    return 'text-red-400 bg-red-500/10 border-red-500/20';
   };
 
   return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>⚡</span> Performance Metrics
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {metrics.map((metric) => (
-          <div
-            key={metric.label}
-            className="p-4 rounded-xl bg-bg-surface border border-border-subtle"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-text-secondary text-sm">{metric.label}</span>
-              <span className="font-mono font-semibold">
-                {metric.value}
-                <span className="text-text-muted text-xs">{metric.unit}</span>
-              </span>
-            </div>
-            {metric.isScore ? (
-              <div className="w-full h-2 rounded-full bg-bg-surface">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${getScoreColor(
-                    metric.value as number
-                  )}`}
-                  style={{ width: `${metric.value}%` }}
-                />
-              </div>
-            ) : metric.threshold ? (
-              <div className="w-full h-2 rounded-full bg-bg-surface">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${getBarColor(
-                    metric.threshold,
-                    metric.threshold.value || 0
-                  )}`}
-                  style={{ width: `${(metric.bar || 0) * 100}%` }}
-                />
-              </div>
-            ) : null}
-          </div>
-        ))}
-      </div>
+    <div className={`p-4 rounded-xl border text-center ${getColor(score)}`}>
+      <div className="text-2xl mb-1">{icon}</div>
+      <div className="text-2xl font-bold">{score}</div>
+      <div className="text-xs text-text-muted">{label}</div>
     </div>
   );
 }
 
-function SecurityHeaders({ data }: { data: any }) {
-  const headers = data.securityHeaders;
-  const headerList = Object.entries(headers) as [string, { present: boolean; value: string | null }][];
-
-  const presentCount = headerList.filter(([, h]) => h.present).length;
-
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>🔒</span> Security Headers
-        <span className="text-sm font-normal text-text-muted">
-          ({presentCount}/{headerList.length} present)
-        </span>
-      </h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {headerList.map(([name, header]) => (
-          <div
-            key={name}
-            className={`flex items-center gap-3 p-4 rounded-xl border ${
-              header.present
-                ? 'bg-accent-green/5 border-accent-green/20'
-                : 'bg-accent-red/5 border-accent-red/20'
-            }`}
-          >
-            <span className="text-lg">{header.present ? '✅' : '❌'}</span>
-            <div className="min-w-0 flex-1">
-              <p className="font-mono text-sm font-medium truncate">{name}</p>
-              {header.value && (
-                <p className="text-text-muted text-xs truncate mt-0.5">
-                  {header.value}
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 flex items-center gap-6 text-sm text-text-secondary">
-        <span className="flex items-center gap-1">
-          🔓 HTTPS: {data.isHttps ? 'Yes' : 'No'}
-        </span>
-        <span>⏱ Response: {data.responseTime}ms</span>
-        <span>📊 Status: {data.statusCode}</span>
-      </div>
-    </div>
-  );
-}
-
-function ConsoleErrors({ data }: { data: any }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!data.consoleErrors?.length && !data.failedRequests?.length) {
-    return (
-      <div className="mb-8">
-        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <span>🐛</span> Console & Network Errors
-        </h2>
-        <div className="p-4 rounded-xl bg-accent-green/5 border border-accent-green/20 text-accent-green">
-          No console errors or failed requests detected!
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>🐛</span> Console & Network Errors
-        <span className="text-sm font-normal text-text-muted">
-          ({data.consoleErrors?.length || 0} errors,{' '}
-          {data.failedRequests?.length || 0} failed requests)
-        </span>
-      </h2>
-
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left p-4 rounded-xl bg-bg-surface border border-border-subtle hover:border-border-subtle transition-colors flex items-center justify-between"
-      >
-        <span className="text-sm text-text-secondary">
-          {expanded ? 'Hide details' : 'Show details'}
-        </span>
-        <span className="text-text-muted">{expanded ? '▲' : '▼'}</span>
-      </button>
-
-      {expanded && (
-        <div className="mt-3 space-y-2">
-          {data.consoleErrors?.map((err: any, i: number) => (
-            <div
-              key={i}
-              className="p-3 rounded-lg bg-accent-red/5 border border-accent-red/10"
-            >
-              <p className="font-mono text-xs text-accent-red">{err.type}</p>
-              <p className="text-sm mt-1">{err.text}</p>
-              {err.url && (
-                <p className="text-text-muted text-xs mt-1">
-                  {err.url}:{err.line}
-                </p>
-              )}
-            </div>
-          ))}
-          {data.failedRequests?.map((req: any, i: number) => (
-            <div
-              key={`req-${i}`}
-              className="p-3 rounded-lg bg-accent-yellow/5 border border-accent-yellow/10"
-            >
-              <p className="font-mono text-xs text-accent-yellow">
-                {req.status} {req.statusText}
-              </p>
-              <p className="text-sm mt-1 truncate">{req.url}</p>
-              {req.failureText && (
-                <p className="text-text-muted text-xs mt-1">{req.failureText}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BrokenLinks({ data }: { data: any }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>🔗</span> Link Analysis
-      </h2>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="p-3 rounded-xl bg-bg-surface border border-border-subtle text-center">
-          <p className="text-2xl font-bold">{data.linkStats?.total || 0}</p>
-          <p className="text-text-muted text-xs">Total Links</p>
-        </div>
-        <div className="p-3 rounded-xl bg-accent-green/5 border border-accent-green/20 text-center">
-          <p className="text-2xl font-bold text-accent-green">
-            {data.linkStats?.working || 0}
-          </p>
-          <p className="text-text-muted text-xs">Working</p>
-        </div>
-        <div className="p-3 rounded-xl bg-accent-red/5 border border-accent-red/20 text-center">
-          <p className="text-2xl font-bold text-accent-red">
-            {data.linkStats?.broken || 0}
-          </p>
-          <p className="text-text-muted text-xs">Broken</p>
-        </div>
-        <div className="p-3 rounded-xl bg-bg-surface border border-border-subtle text-center">
-          <p className="text-2xl font-bold">{data.linkStats?.skipped || 0}</p>
-          <p className="text-text-muted text-xs">Skipped</p>
-        </div>
-      </div>
-
-      {data.brokenLinks?.length > 0 && (
-        <>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full text-left p-4 rounded-xl bg-bg-surface border border-border-subtle hover:border-border-subtle transition-colors flex items-center justify-between"
-          >
-            <span className="text-sm text-text-secondary">
-              {expanded ? 'Hide broken links' : `Show ${data.brokenLinks.length} broken links`}
-            </span>
-            <span className="text-text-muted">{expanded ? '▲' : '▼'}</span>
-          </button>
-
-          {expanded && (
-            <div className="mt-3 space-y-2">
-              {data.brokenLinks.map((link: any, i: number) => (
-                <div
-                  key={i}
-                  className="p-3 rounded-lg bg-accent-red/5 border border-accent-red/10"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-accent-red">
-                      {link.status}
-                    </span>
-                    <span className="text-sm truncate flex-1">{link.url}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function SEOChecklist({ data }: { data: any }) {
-  const checks = [
-    {
-      label: 'Title Tag',
-      passed: data.title?.present && data.title?.optimalLength,
-      detail: data.title?.present
-        ? `${data.title.length} chars ${data.title.optimalLength ? '(optimal)' : '(should be 50-60 chars)'}`
-        : 'Missing',
-    },
-    {
-      label: 'Meta Description',
-      passed: data.metaDescription?.present && data.metaDescription?.optimalLength,
-      detail: data.metaDescription?.present
-        ? `${data.metaDescription.length} chars ${data.metaDescription.optimalLength ? '(optimal)' : '(should be 120-160 chars)'}`
-        : 'Missing',
-    },
-    {
-      label: 'H1 Tag',
-      passed: data.h1?.hasExactlyOne,
-      detail: data.h1?.count > 0
-        ? `${data.h1.count} found ${data.h1.hasExactlyOne ? '' : '(should be exactly 1)'}`
-        : 'Missing',
-    },
-    {
-      label: 'Image Alt Text',
-      passed: data.imagesWithoutAlt?.withoutAlt === 0 && data.imagesWithoutAlt?.total > 0,
-      detail: data.imagesWithoutAlt?.total > 0
-        ? `${data.imagesWithoutAlt.withoutAlt}/${data.imagesWithoutAlt.total} images missing alt`
-        : 'No images found',
-    },
-    {
-      label: 'Canonical Tag',
-      passed: data.canonical?.present,
-      detail: data.canonical?.present ? 'Present' : 'Missing',
-    },
-    {
-      label: 'robots.txt',
-      passed: data.robotsTxt?.exists,
-      detail: data.robotsTxt?.exists ? 'Exists' : 'Not found',
-    },
-    {
-      label: 'sitemap.xml',
-      passed: data.sitemapXml?.exists,
-      detail: data.sitemapXml?.exists
-        ? `Found (${data.sitemapXml.urls} URLs)`
-        : 'Not found',
-    },
-    {
-      label: 'Open Graph Tags',
-      passed:
-        data.openGraph?.title &&
-        data.openGraph?.description &&
-        data.openGraph?.image,
-      detail: [
-        data.openGraph?.title && 'title',
-        data.openGraph?.description && 'description',
-        data.openGraph?.image && 'image',
-        data.openGraph?.url && 'url',
-      ]
-        .filter(Boolean)
-        .join(', ') || 'None found',
-    },
-  ];
-
-  const passedCount = checks.filter((c) => c.passed).length;
-
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>🔍</span> SEO Checklist
-        <span className="text-sm font-normal text-text-muted">
-          ({passedCount}/{checks.length} passed)
-        </span>
-      </h2>
-
-      <div className="space-y-2">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className={`flex items-center gap-3 p-4 rounded-xl border ${
-              check.passed
-                ? 'bg-accent-green/5 border-accent-green/20'
-                : 'bg-accent-yellow/5 border-accent-yellow/20'
-            }`}
-          >
-            <span className="text-lg">{check.passed ? '✅' : '⚠️'}</span>
-            <div className="flex-1">
-              <span className="font-medium text-sm">{check.label}</span>
-              <span className="text-text-muted text-sm ml-2">— {check.detail}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Screenshots({ data }: { data: any }) {
-  if (!data?.desktop && !data?.mobile) return null;
-
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>📸</span> Screenshots
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.desktop && (
-          <div className="rounded-xl overflow-hidden border border-border-subtle">
-            <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">
-              Desktop (1440×900)
-            </div>
-            <img
-              src={`data:image/png;base64,${data.desktop}`}
-              alt="Desktop screenshot"
-              className="w-full"
-            />
-          </div>
-        )}
-        {data.mobile && (
-          <div className="rounded-xl overflow-hidden border border-border-subtle">
-            <div className="p-2 bg-bg-surface text-center text-xs text-text-muted">
-              Mobile (375×812)
-            </div>
-            <img
-              src={`data:image/png;base64,${data.mobile}`}
-              alt="Mobile screenshot"
-              className="w-full max-w-xs mx-auto"
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FailedSteps({ steps }: { steps: { step: string; name: string; error: string }[] }) {
-  return (
-    <div className="mb-8">
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <span>⚠️</span> Failed Steps
-      </h2>
-      <div className="space-y-2">
-        {steps.map((step) => (
-          <div
-            key={step.step}
-            className="p-4 rounded-xl bg-accent-red/5 border border-accent-red/20"
-          >
-            <p className="font-medium text-accent-red">{step.name}</p>
-            <p className="text-text-muted text-sm mt-1">{step.error}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MakePublicToggle({ auditId }: { auditId: string }) {
-  const [isPublic, setIsPublic] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/audit/${auditId}/report`).then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.isPublic !== undefined) setIsPublic(d.isPublic); }).catch(() => {});
-  }, [auditId]);
-
-  const toggle = async () => {
-    const next = !isPublic;
-    setIsPublic(next);
-    setSaved(false);
-    try {
-      await fetch(`/api/audit/${auditId}/set-public`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_public: next }),
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch { setIsPublic(!next); }
+function MetricCard({ label, value, color }: { label: string; value: string; color: string }) {
+  const colorMap: Record<string, string> = {
+    green: 'border-green-500/30',
+    yellow: 'border-yellow-500/30',
+    red: 'border-red-500/30',
+    gray: 'border-border-subtle',
   };
 
   return (
-    <div className="mb-8 p-4 rounded-xl bg-bg-surface border border-border-subtle flex items-center justify-between">
-      <div>
-        <p className="font-medium text-sm">Public Leaderboard</p>
-        <p className="text-xs text-text-muted">Show this report on the public leaderboard</p>
-      </div>
-      <div className="flex items-center gap-3">
-        {saved && <span className="text-xs text-accent-green">Saved</span>}
-        <button
-          onClick={toggle}
-          className={`relative w-12 h-6 rounded-full transition-colors ${isPublic ? 'bg-primary' : 'bg-bg-card'}`}
-        >
-          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${isPublic ? 'left-[26px]' : 'left-0.5'}`} />
-        </button>
-      </div>
+    <div className={`p-4 rounded-xl bg-bg-surface border ${colorMap[color] || colorMap.gray}`}>
+      <div className="text-text-muted text-sm mb-1">{label}</div>
+      <div className="font-mono font-semibold text-lg">{value}</div>
     </div>
   );
 }

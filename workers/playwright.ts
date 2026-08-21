@@ -1,179 +1,89 @@
-interface PlaywrightResult {
-  consoleErrors: { type: string; text: string; url?: string; line?: number }[];
-  failedRequests: { url: string; status: number; statusText: string; failureText?: string }[];
-  screenshots: { desktop: string | null; mobile: string | null };
-  pageLoaded: boolean;
-  loadTime: number;
-  title: string;
+export interface PlaywrightResult {
+  consoleErrors: Array<{ message: string; location?: any; severity: string; fix: string }>;
+  failedRequests: Array<{ url: string; method: string; error: string; resourceType: string; fix: string }>;
+  desktopScreenshot: string | null;
+  mobileScreenshot: string | null;
+  errorCount: number;
+  failedRequestCount: number;
 }
 
 export async function runPlaywright(url: string): Promise<PlaywrightResult> {
-  const result: PlaywrightResult = {
-    consoleErrors: [],
-    failedRequests: [],
-    screenshots: { desktop: null, mobile: null },
-    pageLoaded: false,
-    loadTime: 0,
-    title: '',
-  };
-
-  // Try Playwright first, then puppeteer-core as fallback
   let browser: any = null;
-  let usePuppeteer = false;
 
   try {
     const { chromium } = await import('playwright');
     browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-first-run', '--disable-extensions'],
     });
-  } catch {
-    // Playwright unavailable — try puppeteer-core
+
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+
+    const page = await context.newPage();
+    const consoleErrors: PlaywrightResult['consoleErrors'] = [];
+    const failedRequests: PlaywrightResult['failedRequests'] = [];
+
+    page.on('console', (msg: any) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push({
+          message: msg.text(),
+          location: msg.location(),
+          severity: 'high',
+          fix: 'Check browser console for this error and fix the underlying JS issue',
+        });
+      }
+    });
+
+    page.on('requestfailed', (request: any) => {
+      const reqUrl = request.url();
+      if (reqUrl.includes('google-analytics') || reqUrl.includes('facebook') || reqUrl.includes('hotjar')) return;
+      failedRequests.push({
+        url: reqUrl,
+        method: request.method(),
+        error: request.failure()?.errorText ?? 'Unknown error',
+        resourceType: request.resourceType(),
+        fix: `Failed to load ${request.resourceType()} resource — check if file exists and is accessible`,
+      });
+    });
+
+    // Try networkidle first, fallback to domcontentloaded
     try {
-      const puppeteer = await import('puppeteer-core');
-      const chromium = await import('@sparticuz/chromium');
-      browser = await puppeteer.default.launch({
-        args: chromium.default.args,
-        executablePath: await chromium.default.executablePath(),
-        headless: true,
-      });
-      usePuppeteer = true;
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
     } catch {
-      // No browser available at all — return empty result
-      result.consoleErrors.push({
-        type: 'browser-unavailable',
-        text: 'Screenshots unavailable: No browser found on this server',
-      });
-      return result;
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
     }
-  }
 
-  try {
-    if (usePuppeteer) {
-      return await runWithPuppeteer(browser, url, result);
-    } else {
-      return await runWithPlaywright(browser, url, result);
-    }
+    // Wait for JS execution
+    await page.waitForTimeout(2000);
+
+    // Desktop screenshot
+    const desktopScreenshot = await page.screenshot({
+      type: 'jpeg',
+      quality: 80,
+      fullPage: false,
+    }).then((buf: any) => buf.toString('base64')).catch(() => null);
+
+    // Mobile screenshot
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(500);
+    const mobileScreenshot = await page.screenshot({
+      type: 'jpeg',
+      quality: 80,
+      fullPage: false,
+    }).then((buf: any) => buf.toString('base64')).catch(() => null);
+
+    return {
+      consoleErrors: consoleErrors.slice(0, 20),
+      failedRequests: failedRequests.slice(0, 20),
+      desktopScreenshot,
+      mobileScreenshot,
+      errorCount: consoleErrors.length,
+      failedRequestCount: failedRequests.length,
+    };
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
-}
-
-async function runWithPlaywright(browser: any, url: string, result: PlaywrightResult): Promise<PlaywrightResult> {
-  const { chromium } = await import('playwright');
-
-  // Desktop
-  const desktopContext = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-  });
-  const desktopPage = await desktopContext.newPage();
-
-  desktopPage.on('console', (msg: any) => {
-    if (msg.type() === 'error' || msg.type() === 'warning') {
-      result.consoleErrors.push({
-        type: msg.type(),
-        text: msg.text(),
-        url: msg.location()?.url,
-        line: msg.location()?.lineNumber ?? undefined,
-      });
-    }
-  });
-
-  desktopPage.on('requestfailed', (request: any) => {
-    result.failedRequests.push({
-      url: request.url(),
-      status: 0,
-      statusText: 'FAILED',
-      failureText: request.failure()?.errorText,
-    });
-  });
-
-  desktopPage.on('response', (response: any) => {
-    if (response.status() >= 400) {
-      result.failedRequests.push({
-        url: response.url(),
-        status: response.status(),
-        statusText: response.statusText(),
-      });
-    }
-  });
-
-  try {
-    const startTime = Date.now();
-    const response = await desktopPage.goto(url, { waitUntil: 'networkidle', timeout: 25000 });
-    result.loadTime = Date.now() - startTime;
-    result.pageLoaded = response?.ok() ?? false;
-    result.title = await desktopPage.title();
-    await desktopPage.waitForTimeout(2000);
-    const screenshot = await desktopPage.screenshot({ type: 'png', fullPage: false });
-    result.screenshots.desktop = screenshot.toString('base64');
-  } catch (error) {
-    result.pageLoaded = false;
-    result.consoleErrors.push({ type: 'page-error', text: `Page load failed: ${error instanceof Error ? error.message : 'Unknown'}` });
-  }
-
-  await desktopContext.close();
-
-  // Mobile
-  const mobileContext = await browser.newContext({
-    viewport: { width: 375, height: 812 },
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Chrome/120.0.0.0 Mobile/15E148 Safari/604.1',
-    isMobile: true,
-  });
-  const mobilePage = await mobileContext.newPage();
-
-  try {
-    await mobilePage.goto(url, { waitUntil: 'networkidle', timeout: 25000 });
-    await mobilePage.waitForTimeout(2000);
-    const screenshot = await mobilePage.screenshot({ type: 'png', fullPage: false });
-    result.screenshots.mobile = screenshot.toString('base64');
-  } catch {
-    // Mobile failure is non-critical
-  }
-
-  await mobileContext.close();
-  return result;
-}
-
-async function runWithPuppeteer(browser: any, url: string, result: PlaywrightResult): Promise<PlaywrightResult> {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-
-  page.on('console', (msg: any) => {
-    if (msg.type() === 'error' || msg.type() === 'warning') {
-      result.consoleErrors.push({ type: msg.type(), text: msg.text() });
-    }
-  });
-
-  page.on('requestfailed', (req: any) => {
-    result.failedRequests.push({ url: req.url(), status: 0, statusText: 'FAILED', failureText: req.failure()?.errorText });
-  });
-
-  try {
-    const startTime = Date.now();
-    const response = await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 });
-    result.loadTime = Date.now() - startTime;
-    result.pageLoaded = response?.ok() ?? false;
-    result.title = await page.title();
-    await new Promise(r => setTimeout(r, 2000));
-    const screenshot = await page.screenshot({ type: 'png' });
-    result.screenshots.desktop = screenshot.toString('base64');
-  } catch (error) {
-    result.pageLoaded = false;
-    result.consoleErrors.push({ type: 'page-error', text: `Page load failed: ${error instanceof Error ? error.message : 'Unknown'}` });
-  }
-
-  // Mobile
-  try {
-    const mobilePage = await browser.newPage({ viewport: { width: 375, height: 812 } });
-    await mobilePage.goto(url, { waitUntil: 'networkidle2', timeout: 25000 });
-    await new Promise(r => setTimeout(r, 2000));
-    const screenshot = await mobilePage.screenshot({ type: 'png' });
-    result.screenshots.mobile = screenshot.toString('base64');
-    await mobilePage.close();
-  } catch {
-    // Non-critical
-  }
-
-  return result;
 }
