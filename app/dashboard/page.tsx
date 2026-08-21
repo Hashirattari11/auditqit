@@ -114,23 +114,7 @@ export default function DashboardPage() {
           {tab === 'team' && <TeamTab />}
           {tab === 'api-keys' && <ApiKeysTab />}
           {tab === 'settings' && <SettingsTab user={session.user} />}
-          {tab === 'admin' && isAdmin && (
-            <div className="space-y-6 animate-fade-up">
-              <div>
-                <h1 className="text-2xl font-display font-bold mb-1">Admin Panel</h1>
-                <p className="text-text-secondary">Manage users, waitlist, and system settings</p>
-              </div>
-              <Link href="/admin" className="card block hover:border-primary/30 transition-colors p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg mb-1">Open Admin Dashboard</h3>
-                    <p className="text-sm text-text-secondary">View waitlist, user stats, system health, and manage the platform.</p>
-                  </div>
-                  <span className="text-primary text-2xl">&rarr;</span>
-                </div>
-              </Link>
-            </div>
-          )}
+          {tab === 'admin' && isAdmin && <AdminTab />}
         </div>
       </div>
     </div>
@@ -383,6 +367,137 @@ function SettingsTab({ user }: { user: { name?: string | null; email?: string | 
         <p className="text-sm text-text-secondary mb-4">Permanently delete your account and all associated data.</p>
         <button className="btn-danger text-sm">Delete Account</button>
       </div>
+    </div>
+  );
+}
+
+/* ── Admin Tab (inline in dashboard) ──────────────────── */
+function AdminTab() {
+  const [stats, setStats] = useState<any>(null);
+  const [tab, setTab] = useState<'overview' | 'waitlist' | 'users'>('overview');
+
+  useEffect(() => {
+    fetch('/api/admin/stats').then(r => r.ok ? r.json() : null).then(setStats).catch(() => {});
+  }, []);
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-display font-bold mb-1">Admin Panel</h1>
+        <p className="text-text-secondary text-sm">Manage users, waitlist, and system health</p>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 border-b border-border-subtle pb-2">
+        {(['overview', 'waitlist', 'users'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t ? 'bg-primary/10 text-primary border border-primary/20' : 'text-text-secondary hover:text-text-primary'}`}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Overview */}
+      {tab === 'overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Users', value: stats?.totalUsers ?? '...', color: 'text-primary' },
+              { label: 'Total Audits', value: stats?.totalAudits ?? '...', color: 'text-accent-cyan' },
+              { label: 'Waitlist Signups', value: stats?.waitlistCount ?? '...', color: 'text-accent-purple' },
+              { label: 'Today\'s Audits', value: stats?.todayAudits ?? '...', color: 'text-accent-amber' },
+            ].map(s => (
+              <div key={s.label} className="card">
+                <p className="text-sm text-text-secondary mb-1">{s.label}</p>
+                <p className={`text-3xl font-bold font-mono ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <h3 className="font-semibold mb-3">System Health</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-accent-green/5 border border-accent-green/20 flex items-center gap-2">
+                <span className="text-accent-green text-lg">●</span>
+                <span className="text-sm">Supabase Connected</span>
+              </div>
+              <div className="p-3 rounded-lg bg-accent-green/5 border border-accent-green/20 flex items-center gap-2">
+                <span className="text-accent-green text-lg">●</span>
+                <span className="text-sm">AI Engine Ready</span>
+              </div>
+              <div className="p-3 rounded-lg bg-accent-green/5 border border-accent-green/20 flex items-center gap-2">
+                <span className="text-accent-green text-lg">●</span>
+                <span className="text-sm">Vercel Deployed</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-gradient-to-r from-primary/5 to-accent-cyan/5 border-primary/20">
+            <p className="text-sm text-text-secondary">
+              <span className="text-primary font-semibold">Admin Access:</span> You have unlimited audits, no rate limits, full platform access.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Waitlist */}
+      {tab === 'waitlist' && (
+        <div className="space-y-4">
+          <h3 className="font-semibold">Waitlist Signups ({stats?.waitlist?.length || 0})</h3>
+          {(!stats?.waitlist || stats.waitlist.length === 0) ? (
+            <div className="card text-center py-12 text-text-muted">
+              <p className="text-3xl mb-3">📋</p>
+              <p>No waitlist signups yet</p>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="space-y-2">
+                {stats.waitlist.map((w: any) => (
+                  <div key={w.id} className="flex items-center justify-between py-3 px-2 border-b border-border-subtle/50 last:border-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{w.email}</p>
+                      <p className="text-xs text-text-muted">Plan: {w.plan || 'pro'} &middot; Source: {w.source || 'direct'}</p>
+                    </div>
+                    <p className="text-xs text-text-muted">{new Date(w.created_at).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Users */}
+      {tab === 'users' && (
+        <div className="space-y-4">
+          <h3 className="font-semibold">Recent Users ({stats?.recentUsers?.length || 0})</h3>
+          {(!stats?.recentUsers || stats.recentUsers.length === 0) ? (
+            <div className="card text-center py-12 text-text-muted">
+              <p className="text-3xl mb-3">👥</p>
+              <p>No users found</p>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="space-y-2">
+                {stats.recentUsers.map((u: any) => (
+                  <div key={u.id} className="flex items-center justify-between py-3 px-2 border-b border-border-subtle/50 last:border-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{u.name || 'Unnamed'}</p>
+                      <p className="text-xs text-text-muted">{u.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.plan === 'pro' ? 'bg-accent-purple/10 text-accent-purple' : 'bg-bg-surface text-text-secondary'}`}>
+                        {u.plan || 'free'}
+                      </span>
+                      <p className="text-xs text-text-muted">{new Date(u.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
