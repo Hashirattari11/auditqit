@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
@@ -21,6 +18,9 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const auditData = latestAudit?.audits?.results || {};
   const scores = auditData.performance || {};
   const overall = auditData.overallScore || 0;
+
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
     await resend.emails.send({

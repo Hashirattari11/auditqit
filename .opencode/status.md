@@ -1,11 +1,10 @@
 # Mission Status
 
 ## Progress
-- .opencode/todo.md: 97/97 (100%)
-- Issues: 0 unresolved
+- .opencode/todo.md: 97/97 (100%) — M1-M7 complete
+- New work: Audit hanging fix (in progress)
 - Workers: 0 active
-- Verification Strategy: All pages verified via HTTP 200 on Vercel
-- Execution Status: pass
+- Execution Status: running (audit fix)
 
 ## Current Phase
-COMPLETE — All milestones M1-M7 verified and deployed
+Fixing audit hanging on Vercel — status route needs to trigger audit when "pending"
