@@ -39,11 +39,23 @@ export default function ReportPage() {
 
         if (data.status === 'completed' || data.status === 'failed') {
           setPolling(false);
-          // Fetch full report
-          const reportResponse = await fetch(`/api/audit/${auditId}/report`);
-          if (reportResponse.ok) {
-            const reportData = await reportResponse.json();
-            setReport(reportData);
+          // Use results directly from status endpoint (no separate report fetch needed)
+          if (data.results && Object.keys(data.results).length > 0) {
+            setReport({
+              id: data.id,
+              url: data.url,
+              status: data.status,
+              results: data.results,
+              aiSummary: data.aiSummary || null,
+              createdAt: data.createdAt,
+            });
+          } else {
+            // Fallback: try the report endpoint
+            const reportResponse = await fetch(`/api/audit/${auditId}/report`);
+            if (reportResponse.ok) {
+              const reportData = await reportResponse.json();
+              setReport(reportData);
+            }
           }
         }
       }

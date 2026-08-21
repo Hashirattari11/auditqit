@@ -9,7 +9,18 @@ export async function GET(
 ) {
   try {
     const { id } = params;
-    const audit = await db.getAudit(id);
+    
+    // Retry reads to handle Supabase eventual consistency
+    let audit = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      audit = await db.getAudit(id);
+      if (audit && audit.status === 'completed' && audit.results && Object.keys(audit.results).length > 0) {
+        break;
+      }
+      if (audit && audit.status === 'failed') break;
+      // Wait 500ms before retry
+      await new Promise(r => setTimeout(r, 500));
+    }
 
     if (!audit) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
