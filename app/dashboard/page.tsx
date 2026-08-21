@@ -117,6 +117,20 @@ export default function DashboardPage() {
 
 /* ── Overview Tab ─────────────────────────────────────── */
 function OverviewTab({ user }: { user: { name?: string | null; email?: string | null } }) {
+  const [audits, setAudits] = useState<any[]>([]);
+  const [repoAudits, setRepoAudits] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => setAudits(d.audits || [])).catch(() => {});
+    fetch('/api/github-audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => setRepoAudits(d.audits || [])).catch(() => {});
+  }, []);
+
+  const totalAudits = audits.length + repoAudits.length;
+  const allRecent = [
+    ...audits.map(a => ({ ...a, type: 'web' })),
+    ...repoAudits.map(a => ({ ...a, type: 'github' })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
+
   return (
     <div className="space-y-8 animate-fade-up">
       <div>
@@ -127,9 +141,9 @@ function OverviewTab({ user }: { user: { name?: string | null; email?: string | 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Audits', value: '0', color: 'text-primary' },
-          { label: 'This Month', value: '0 / 5', color: 'text-accent-cyan' },
-          { label: 'Issues Found', value: '0', color: 'text-accent-amber' },
+          { label: 'Total Audits', value: totalAudits.toString(), color: 'text-primary' },
+          { label: 'This Month', value: `${totalAudits} / 5`, color: 'text-accent-cyan' },
+          { label: 'Recent', value: allRecent.length.toString(), color: 'text-accent-amber' },
         ].map((s) => (
           <div key={s.label} className="card">
             <p className="text-sm text-text-secondary mb-1">{s.label}</p>
@@ -143,19 +157,38 @@ function OverviewTab({ user }: { user: { name?: string | null; email?: string | 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="font-semibold mb-1">Free Plan</h3>
-            <p className="text-sm text-text-secondary">Upgrade to Pro for unlimited audits, PDF reports, and priority queue.</p>
+            <p className="text-sm text-text-secondary">5 web audits and 5 GitHub audits per month. Upgrade for unlimited.</p>
           </div>
-          <Link href="/pricing" className="btn-primary text-sm whitespace-nowrap">Upgrade to Pro</Link>
+          <Link href="/pricing" className="btn-primary text-sm whitespace-nowrap">View Plans</Link>
         </div>
       </div>
 
       {/* Recent Audits */}
       <div className="card">
         <h3 className="font-semibold mb-4">Recent Audits</h3>
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-lg mb-2">No audits yet</p>
-          <Link href="/" className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">Run your first audit →</Link>
-        </div>
+        {allRecent.length === 0 ? (
+          <div className="text-center py-12 text-text-muted">
+            <p className="text-lg mb-2">No audits yet</p>
+            <Link href="/" className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">Run your first audit &rarr;</Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allRecent.map((a) => (
+              <div key={a.id} className="flex items-center justify-between py-3 border-b border-border-subtle/50 last:border-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{a.url || a.repo_url}</p>
+                  <p className="text-xs text-text-muted">{new Date(a.created_at).toLocaleDateString()} &middot; {a.type}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === 'completed' ? 'bg-accent-green/10 text-accent-green' : a.status === 'failed' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-amber/10 text-accent-amber'}`}>
+                    {a.status}
+                  </span>
+                  <Link href={a.type === 'github' ? `/github-report/${a.id}` : `/report/${a.id}`} className="text-xs text-primary hover:underline">View &rarr;</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -163,6 +196,13 @@ function OverviewTab({ user }: { user: { name?: string | null; email?: string | 
 
 /* ── Web Audits Tab ───────────────────────────────────── */
 function WebAuditsTab() {
+  const [audits, setAudits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => { setAudits(d.audits || []); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="flex items-center justify-between">
@@ -173,12 +213,39 @@ function WebAuditsTab() {
         <Link href="/" className="btn-primary text-sm">New Audit</Link>
       </div>
       <div className="card">
-        <div className="text-center py-16 text-text-muted">
-          <div className="text-4xl mb-4">🌐</div>
-          <p className="text-lg mb-2">No website audits yet</p>
-          <p className="text-sm mb-6">Paste any URL to get instant performance, security, and SEO scores.</p>
-          <Link href="/" className="btn-primary text-sm inline-block">Run Website Audit</Link>
-        </div>
+        {loading ? (
+          <div className="text-center py-16 text-text-muted">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm">Loading audits...</p>
+          </div>
+        ) : audits.length === 0 ? (
+          <div className="text-center py-16 text-text-muted">
+            <div className="text-4xl mb-4">&#127760;</div>
+            <p className="text-lg mb-2">No website audits yet</p>
+            <p className="text-sm mb-6">Paste any URL to get instant performance, security, and SEO scores.</p>
+            <Link href="/" className="btn-primary text-sm inline-block">Run Website Audit</Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {audits.map((a: any) => (
+              <div key={a.id} className="flex items-center justify-between py-3 px-2 border-b border-border-subtle/50 last:border-0 hover:bg-bg-surface/50 transition-colors rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{a.url}</p>
+                  <p className="text-xs text-text-muted">{new Date(a.created_at).toLocaleDateString()} &middot; {a.status}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === 'completed' ? 'bg-accent-green/10 text-accent-green' : a.status === 'failed' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-amber/10 text-accent-amber'}`}>
+                    {a.status}
+                  </span>
+                  <Link href={`/report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View Report &rarr;</Link>
+                  {a.status === 'completed' && (
+                    <Link href={`/api/report/${a.id}/pdf`} className="text-xs text-text-secondary hover:text-primary whitespace-nowrap">PDF</Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -186,6 +253,13 @@ function WebAuditsTab() {
 
 /* ── GitHub Audits Tab ────────────────────────────────── */
 function GitHubAuditsTab() {
+  const [audits, setAudits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/github-audit/recent').then(r => r.ok ? r.json() : { audits: [] }).then(d => { setAudits(d.audits || []); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="flex items-center justify-between">
@@ -196,12 +270,39 @@ function GitHubAuditsTab() {
         <Link href="/" className="btn-primary text-sm">New Audit</Link>
       </div>
       <div className="card">
-        <div className="text-center py-16 text-text-muted">
-          <div className="text-4xl mb-4">🐙</div>
-          <p className="text-lg mb-2">No GitHub audits yet</p>
-          <p className="text-sm mb-6">Paste a GitHub repo URL to scan for bugs, security issues, and code quality problems.</p>
-          <Link href="/" className="btn-primary text-sm inline-block">Scan Repository</Link>
-        </div>
+        {loading ? (
+          <div className="text-center py-16 text-text-muted">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm">Loading audits...</p>
+          </div>
+        ) : audits.length === 0 ? (
+          <div className="text-center py-16 text-text-muted">
+            <div className="text-4xl mb-4">&#128025;</div>
+            <p className="text-lg mb-2">No GitHub audits yet</p>
+            <p className="text-sm mb-6">Paste a GitHub repo URL to scan for bugs, security issues, and code quality problems.</p>
+            <Link href="/" className="btn-primary text-sm inline-block">Scan Repository</Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {audits.map((a: any) => (
+              <div key={a.id} className="flex items-center justify-between py-3 px-2 border-b border-border-subtle/50 last:border-0 hover:bg-bg-surface/50 transition-colors rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{a.repo_url}</p>
+                  <p className="text-xs text-text-muted">{new Date(a.created_at).toLocaleDateString()} &middot; {a.status}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === 'completed' ? 'bg-accent-green/10 text-accent-green' : a.status === 'failed' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-amber/10 text-accent-amber'}`}>
+                    {a.status}
+                  </span>
+                  <Link href={`/github-report/${a.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">View Report &rarr;</Link>
+                  {a.status === 'completed' && (
+                    <Link href={`/api/github-report/${a.id}/pdf`} className="text-xs text-text-secondary hover:text-primary whitespace-nowrap">PDF</Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

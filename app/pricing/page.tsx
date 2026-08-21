@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import WaitlistForm from '@/components/WaitlistForm';
 
 export default async function PricingPage() {
   const session = await auth();
@@ -34,7 +35,7 @@ export default async function PricingPage() {
             <ul className="space-y-3 mb-8">
               {features.free.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm">
-                  <span className="text-accent-green">✓</span>
+                  <span className="text-accent-green">&#10003;</span>
                   <span className="text-text-secondary">{f}</span>
                 </li>
               ))}
@@ -54,18 +55,16 @@ export default async function PricingPage() {
             <ul className="space-y-3 mb-8">
               {features.pro.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm">
-                  <span className="text-accent-green">✓</span>
+                  <span className="text-accent-green">&#10003;</span>
                   <span className="text-text-secondary">{f}</span>
                 </li>
               ))}
             </ul>
-            <form action="/api/stripe/create-checkout" method="POST">
-              <button type="submit" className="btn-primary w-full">Upgrade to Pro</button>
-            </form>
+            <WaitlistForm plan="pro" />
           </div>
 
           {/* Team Plan */}
-          <div className="card animate-fade-up animate-delay-200" style={{ opacity: 0, animationFillMode: 'forwards' }}>
+          <div className="card relative animate-fade-up animate-delay-200" style={{ opacity: 0, animationFillMode: 'forwards' }}>
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-accent-purple text-white text-xs font-semibold hidden md:block">New</div>
             <h2 className="text-xl font-semibold mb-2">Team</h2>
             <p className="text-text-secondary text-sm mb-6">For agencies and teams</p>
@@ -76,15 +75,12 @@ export default async function PricingPage() {
             <ul className="space-y-3 mb-8">
               {features.team.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm">
-                  <span className="text-accent-green">✓</span>
+                  <span className="text-accent-green">&#10003;</span>
                   <span className="text-text-secondary">{f}</span>
                 </li>
               ))}
             </ul>
-            <form action="/api/stripe/create-checkout" method="POST">
-              <input type="hidden" name="plan" value="team" />
-              <button type="submit" className="w-full py-3 rounded-xl bg-accent-purple text-white font-semibold hover:opacity-90 transition-opacity">Start Team Trial</button>
-            </form>
+            <WaitlistForm plan="team" />
           </div>
         </div>
       </div>

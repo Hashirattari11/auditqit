@@ -9,10 +9,8 @@ export async function GET() {
     today.setHours(0, 0, 0, 0);
     const weekAgo = new Date(today);
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const monthAgo = new Date(today);
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-    const [totalUsers, totalWebAudits, totalRepoAudits, todayAudits, weekAudits, recentUsers] =
+    const [totalUsers, totalWebAudits, totalRepoAudits, todayAudits, weekAudits, recentUsers, waitlist] =
       await Promise.all([
         supabase.from('users').select('id', { count: 'exact', head: true }),
         supabase.from('audits').select('id', { count: 'exact', head: true }),
@@ -20,6 +18,7 @@ export async function GET() {
         supabase.from('audits').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
         supabase.from('audits').select('id', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
         supabase.from('users').select('id, name, email, plan, created_at').order('created_at', { ascending: false }).limit(10),
+        supabase.from('waitlist').select('id, email, plan, source, created_at').order('created_at', { ascending: false }),
       ]);
 
     return NextResponse.json({
@@ -28,6 +27,8 @@ export async function GET() {
       todayAudits: todayAudits.count || 0,
       weekAudits: weekAudits.count || 0,
       recentUsers: recentUsers.data || [],
+      waitlist: waitlist.data || [],
+      waitlistCount: waitlist.data?.length || 0,
       dbConnected: true,
     }, {
       headers: { 'Cache-Control': 'no-store' },

@@ -5,14 +5,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const audits = await db.getRecentRepoAudits(5);
+    const audits = await db.getRecentRepoAudits(10);
 
     return NextResponse.json({
       audits: audits.map((a) => ({
         id: a.id,
         repo_url: a.repo_url,
-        owner: a.owner,
-        repo: a.repo,
         status: a.status,
         created_at: a.created_at,
       })),
