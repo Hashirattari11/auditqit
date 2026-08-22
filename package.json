@@ -12,6 +12,7 @@
     "db:push": "npx prisma db push"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@octokit/rest": "^22.0.1",
     "@prisma/client": "^6.15.0",
     "@sparticuz/chromium": "^149.0.0",

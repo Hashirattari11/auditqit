@@ -33,7 +33,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex">
-      {/* Left — Animated Panel */}
+      {/* Left — Branding Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-bg-surface">
         <div className="hero-blob hero-blob-1" style={{ width: 400, height: 400, top: -100, left: -100 }} />
         <div className="hero-blob hero-blob-2" style={{ width: 350, height: 350, bottom: -80, right: -50 }} />
@@ -54,13 +54,14 @@ export default function LoginPage() {
 
           <div className="space-y-4 animate-fade-up animate-delay-200" style={{ opacity: 0, animationFillMode: 'forwards' }}>
             {[
-              { label: 'Websites Audited', value: '12,847+' },
-              { label: 'Bugs Found & Fixed', value: '98,234+' },
-              { label: 'Avg Improvement', value: '42%' },
-            ].map((stat) => (
-              <div key={stat.label} className="flex items-center gap-4 p-4 rounded-xl bg-bg/50 border border-border-subtle/50">
-                <span className="text-2xl font-bold font-mono text-primary">{stat.value}</span>
-                <span className="text-sm text-text-secondary">{stat.label}</span>
+              { icon: '⚡', text: 'Performance audits in 60 seconds' },
+              { icon: '🔒', text: 'Security headers checked instantly' },
+              { icon: '🤖', text: 'AI-powered fix suggestions' },
+              { icon: '📊', text: 'Shareable professional reports' },
+            ].map((item) => (
+              <div key={item.text} className="flex items-center gap-4 p-4 rounded-xl bg-bg/50 border border-border-subtle/50">
+                <span className="text-2xl">{item.icon}</span>
+                <span className="text-text-secondary text-sm">{item.text}</span>
               </div>
             ))}
           </div>
@@ -102,7 +103,7 @@ export default function LoginPage() {
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                   Signing in...
                 </span>
-              ) : 'Sign In'}
+              ) : 'Sign In →'}
             </button>
           </form>
 

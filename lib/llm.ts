@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 
-// Gemini client (primary)
+// Gemini client (primary) — official OpenAI-compatible endpoint
 const geminiClient = new OpenAI({
   apiKey: process.env.GEMINI_API_KEY || 'sk-placeholder',
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
 
 // NVIDIA client (fallback)
@@ -12,7 +12,7 @@ const nvidiaClient = new OpenAI({
   baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'];
 const NVIDIA_MODELS = ['nvidia/llama-3.3-nemotron-super-49b-v1', 'meta/llama-3.3-70b-instruct'];
 
 const WEB_AUDIT_PROMPT = `You are a web performance expert. Analyze these audit results and provide:
@@ -38,6 +38,8 @@ IMPORTANT: For each critical/high issue, provide the EXACT corrected code that f
 Format in clean markdown sections. Be specific with line references and file paths.
 Use code blocks for all code suggestions.`;
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 async function tryGenerate(
   aiClient: OpenAI,
   model: string,
@@ -45,22 +47,31 @@ async function tryGenerate(
   userContent: string,
   maxTokens: number
 ): Promise<string | null> {
-  try {
-    const response = await aiClient.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 0.7,
-      max_tokens: maxTokens,
-    }, { timeout: 30000 });
+  // Retry up to 2 times for rate limits (429)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await aiClient.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+        max_tokens: maxTokens,
+      }, { timeout: 30000 });
 
-    return response.choices[0]?.message?.content || null;
-  } catch (error) {
-    console.error(`AI generation failed with model ${model}:`, error);
-    return null;
+      return response.choices[0]?.message?.content || null;
+    } catch (error: any) {
+      const is429 = error?.status === 429;
+      console.error(`AI generation failed with model ${model} (attempt ${attempt + 1}):`, error?.message || error);
+      if (is429 && attempt < 1) {
+        await sleep(2000); // wait 2s before retry on rate limit
+        continue;
+      }
+      return null;
+    }
   }
+  return null;
 }
 
 // Try Gemini first, then NVIDIA fallback

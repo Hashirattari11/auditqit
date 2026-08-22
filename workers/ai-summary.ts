@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 
-// Gemini client (primary)
+// Gemini client (primary) — official OpenAI-compatible endpoint
 const geminiClient = new OpenAI({
   apiKey: process.env.GEMINI_API_KEY || 'sk-placeholder',
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
 
 // NVIDIA client (fallback)
@@ -12,8 +12,12 @@ const nvidiaClient = new OpenAI({
   baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+// Official model names — MUST match Google's docs exactly
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'];
 const NVIDIA_MODELS = ['nvidia/llama-3.3-nemotron-super-49b-v1', 'meta/llama-3.3-70b-instruct'];
+
+/** Sleep helper for retry backoff */
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export interface AIResult {
   summary: string;
@@ -114,30 +118,38 @@ End with 3 QUICK WINS — things that take under 1 hour to fix and would improve
   ];
 
   for (const { client, model } of allAttempts) {
-    try {
-      const response = await client.chat.completions.create(
-        {
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 2000,
-        },
-        { timeout: 30000 }
-      );
+    // Retry up to 2 times for rate limits (429)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await client.chat.completions.create(
+          {
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 2000,
+          },
+          { timeout: 30000 }
+        );
 
-      const aiText = response.choices[0]?.message?.content || '';
+        const aiText = response.choices[0]?.message?.content || '';
 
-      return {
-        summary: aiText,
-        issueCount: allIssues.length,
-        criticalCount: allIssues.filter((i: any) => i.severity === 'critical').length,
-        highCount: allIssues.filter((i: any) => i.severity === 'high').length,
-        allIssues,
-        overallScore,
-      };
-    } catch (error) {
-      console.error(`AI generation failed with model ${model}:`, error);
-      continue;
+        return {
+          summary: aiText,
+          issueCount: allIssues.length,
+          criticalCount: allIssues.filter((i: any) => i.severity === 'critical').length,
+          highCount: allIssues.filter((i: any) => i.severity === 'high').length,
+          allIssues,
+          overallScore,
+        };
+      } catch (error: any) {
+        const is429 = error?.status === 429;
+        console.error(`AI generation failed with model ${model} (attempt ${attempt + 1}):`, error?.message || error);
+        if (is429 && attempt < 1) {
+          await sleep(2000); // wait 2s before retry on rate limit
+          continue;
+        }
+        break; // non-retryable error, move to next model
+      }
     }
   }
 

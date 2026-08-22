@@ -44,22 +44,23 @@ export default function ReportChat({ auditId }: ReportChatProps) {
       });
 
       if (!res.ok) throw new Error('Failed');
+      if (!res.body) throw new Error('No stream');
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('No stream');
-
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
       let assistantMsg = '';
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-      const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
+        const chunk = decoder.decode(value, { stream: true });
+
+        // Handle SSE format: data: {"content":"..."} or data: [DONE]
         const lines = chunk.split('\n');
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+            const data = line.slice(6).trim();
             if (data === '[DONE]') break;
             try {
               const parsed = JSON.parse(data);
@@ -75,30 +76,65 @@ export default function ReportChat({ auditId }: ReportChatProps) {
           }
         }
       }
+
+      // If no SSE data received, try reading as plain text (fallback)
+      if (!assistantMsg) {
+        // Re-read as plain text from a second attempt
+        const plainRes = await fetch(`/api/report/${auditId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            history: messages.map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+        if (plainRes.ok && plainRes.body) {
+          const reader2 = plainRes.body.getReader();
+          const decoder2 = new TextDecoder();
+          while (true) {
+            const { done, value } = await reader2.read();
+            if (done) break;
+            assistantMsg += decoder2.decode(value, { stream: true });
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: assistantMsg };
+              return updated;
+            });
+          }
+        }
+      }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
+      setMessages(prev => {
+        const updated = [...prev];
+        // Remove empty assistant message if it exists
+        if (updated.length > 0 && updated[updated.length - 1].role === 'assistant' && !updated[updated.length - 1].content) {
+          updated.pop();
+        }
+        updated.push({ role: 'assistant', content: 'Sorry, something went wrong. Please try again.' });
+        return updated;
+      });
     } finally {
       setIsTyping(false);
     }
   };
 
   return (
-    <>
+    <div className="chat-widget">
       {/* Floating button */}
       <button onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-accent-blue to-accent-purple text-white shadow-lg shadow-accent-purple/20 hover:scale-110 transition-transform flex items-center justify-center text-xl">
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center text-xl no-print">
         {isOpen ? '✕' : '💬'}
       </button>
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[400px] max-w-[calc(100vw-48px)] h-[600px] max-h-[calc(100vh-120px)] bg-bg-surface border border-border-subtle rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-up">
+        <div className="fixed bottom-24 right-6 z-50 w-[400px] max-w-[calc(100vw-48px)] h-[600px] max-h-[calc(100vh-120px)] bg-[#0A0A0F] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-up no-print">
           {/* Header */}
-          <div className="p-4 border-b border-border-subtle flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center text-sm">🤖</div>
+          <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-[#111118]">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] flex items-center justify-center text-sm">🤖</div>
             <div>
-              <p className="font-semibold text-sm">AI Assistant</p>
-              <p className="text-xs text-text-muted">Ask about this audit</p>
+              <p className="font-semibold text-sm text-white">AI Assistant</p>
+              <p className="text-xs text-white/40">Ask about this audit</p>
             </div>
           </div>
 
@@ -106,11 +142,11 @@ export default function ReportChat({ auditId }: ReportChatProps) {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-text-muted text-sm mb-4">Ask me anything about this audit report</p>
+                <p className="text-white/40 text-sm mb-4">Ask me anything about this audit report</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {suggested.map(q => (
                     <button key={q} onClick={() => sendMessage(q)}
-                      className="px-3 py-1.5 rounded-full text-xs bg-bg border border-border-subtle text-text-secondary hover:text-text-primary hover:border-primary/30 transition-colors">
+                      className="px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors">
                       {q}
                     </button>
                   ))}
@@ -121,8 +157,8 @@ export default function ReportChat({ auditId }: ReportChatProps) {
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-primary text-white rounded-br-md'
-                    : 'bg-bg border border-border-subtle text-text-primary rounded-bl-md'
+                    ? 'bg-[#6366F1] text-white rounded-br-md'
+                    : 'bg-white/5 border border-white/10 text-white/80 rounded-bl-md'
                 }`}>
                   <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
                 </div>
@@ -130,22 +166,22 @@ export default function ReportChat({ auditId }: ReportChatProps) {
             ))}
             {isTyping && messages[messages.length - 1]?.role !== 'assistant' && (
               <div className="flex justify-start">
-                <div className="bg-bg border border-border-subtle rounded-2xl rounded-bl-md p-3 flex gap-1.5">
-                  <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="bg-white/5 border border-white/10 rounded-2xl rounded-bl-md p-3 flex gap-1.5">
+                  <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             )}
             <div ref={messagesEnd} />
           </div>
 
-          {/* Suggested chips (shown when messages exist) */}
+          {/* Suggested chips */}
           {messages.length > 0 && !isTyping && (
             <div className="px-4 pb-2 flex gap-1.5 overflow-x-auto">
               {suggested.map(q => (
                 <button key={q} onClick={() => sendMessage(q)}
-                  className="px-2.5 py-1 rounded-full text-[10px] bg-bg border border-border-subtle text-text-muted hover:text-text-primary whitespace-nowrap transition-colors flex-shrink-0">
+                  className="px-2.5 py-1 rounded-full text-[10px] bg-white/5 border border-white/10 text-white/40 hover:text-white whitespace-nowrap transition-colors flex-shrink-0">
                   {q}
                 </button>
               ))}
@@ -153,18 +189,18 @@ export default function ReportChat({ auditId }: ReportChatProps) {
           )}
 
           {/* Input */}
-          <div className="p-3 border-t border-border-subtle">
+          <div className="p-3 border-t border-white/10 bg-[#111118]">
             <form onSubmit={e => { e.preventDefault(); sendMessage(input); }} className="flex gap-2">
               <input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask about this report..."
-                className="flex-1 bg-bg border border-border-subtle rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors" />
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors" />
               <button type="submit" disabled={!input.trim() || isTyping}
-                className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center text-sm hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0">
+                className="w-10 h-10 rounded-xl bg-[#6366F1] text-white flex items-center justify-center text-sm hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0">
                 ➤
               </button>
             </form>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

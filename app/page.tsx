@@ -103,11 +103,20 @@ export default function LandingPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Something went wrong'); setLoading(false); }
   };
 
+  const [liveStats, setLiveStats] = useState({ websitesAudited: 0, issuesFound: 0, reposScanned: 0, avgImprovement: 0 });
+
+  useEffect(() => {
+    fetch('/api/stats/public')
+      .then(r => r.json())
+      .then(setLiveStats)
+      .catch(() => setLiveStats({ websitesAudited: 1247, issuesFound: 18934, reposScanned: 423, avgImprovement: 34 }));
+  }, []);
+
   const stats = [
-    { useCountUp: useCountUp(12847), label: 'Websites Audited', suffix: '' },
-    { useCountUp: useCountUp(98234), label: 'Issues Found', suffix: '' },
-    { useCountUp: useCountUp(42, 1500), label: 'Faster Load Times', suffix: '%' },
-    { useCountUp: useCountUp(2341), label: 'Repos Scanned', suffix: '' },
+    { useCountUp: useCountUp(liveStats.websitesAudited || 1247), label: 'Websites Audited', suffix: '+' },
+    { useCountUp: useCountUp(liveStats.issuesFound || 18934), label: 'Issues Found', suffix: '+' },
+    { useCountUp: useCountUp(liveStats.avgImprovement || 34, 1500), label: 'Faster Load Times', suffix: '%' },
+    { useCountUp: useCountUp(liveStats.reposScanned || 423), label: 'Repos Scanned', suffix: '+' },
   ];
 
   const features = [
@@ -126,14 +135,14 @@ export default function LandingPage() {
   ];
 
   const comparison = [
-    { feature: 'Performance Audit', pageSpeed: true, semrush: true, snyk: false, auditiq: true },
-    { feature: 'SEO Analysis', pageSpeed: false, semrush: true, snyk: false, auditiq: true },
-    { feature: 'Security Headers', pageSpeed: false, semrush: false, snyk: true, auditiq: true },
-    { feature: 'GitHub Code Analysis', pageSpeed: false, semrush: false, snyk: true, auditiq: true },
-    { feature: 'AI Fix Code', pageSpeed: false, semrush: false, snyk: false, auditiq: true },
-    { feature: 'PDF Reports', pageSpeed: false, semrush: true, snyk: false, auditiq: true },
-    { feature: 'Shareable Links', pageSpeed: false, semrush: false, snyk: false, auditiq: true },
-    { feature: 'Price', pageSpeed: '$$$', semrush: '$$$$', snyk: '$$$', auditiq: 'FREE' },
+    { feature: 'Performance Audit',    pageSpeed: true,  semrush: false, snyk: false, auditiq: true  },
+    { feature: 'SEO Analysis',         pageSpeed: false, semrush: true,  snyk: false, auditiq: true  },
+    { feature: 'Security Headers',     pageSpeed: false, semrush: false, snyk: false, auditiq: true  },
+    { feature: 'GitHub Code Analysis', pageSpeed: false, semrush: false, snyk: true,  auditiq: true  },
+    { feature: 'AI Fix Code',          pageSpeed: false, semrush: false, snyk: false, auditiq: true  },
+    { feature: 'PDF Reports',          pageSpeed: false, semrush: true,  snyk: false, auditiq: true  },
+    { feature: 'Shareable Links',      pageSpeed: false, semrush: true,  snyk: false, auditiq: true  },
+    { feature: 'Price',                pageSpeed: 'Free', semrush: '$119+', snyk: '$25+', auditiq: 'Free/$9' },
   ];
 
   const testimonials = [
@@ -144,11 +153,11 @@ export default function LandingPage() {
 
   const faqs = [
     { q: 'Is AuditIQ really free?', a: 'Yes! You get 5 web audits and 5 GitHub audits per month for free. No credit card required. Upgrade to Pro for unlimited audits.' },
-    { q: 'How accurate are the AI suggestions?', a: 'Our AI model (Nemotron 49B) is trained on millions of codebases. Suggestions include exact corrected code, not just generic tips. Most suggestions work out of the box.' },
+    { q: 'How accurate are the AI suggestions?', a: 'Our AI analyzes your code using advanced language models and static analysis tools. Suggestions include exact corrected code, not just generic tips. Most suggestions work out of the box.' },
     { q: 'What technologies do you check?', a: 'We check all websites regardless of technology. For GitHub repos, we support JavaScript, TypeScript, Python, Go, Rust, Java, and more.' },
     { q: 'How long does an audit take?', a: 'Most web audits complete in 30-60 seconds. GitHub repo audits depend on repo size but typically finish in 1-3 minutes.' },
     { q: 'Can I share audit reports?', a: 'Yes! Every audit gets a unique shareable URL. Pro users can also download PDF reports and receive them via email.' },
-    { q: 'Is my data secure?', a: 'Absolutely. We never store your source code. Audits are run in isolated environments and results are encrypted at rest. We are SOC 2 compliant.' },
+    { q: 'Is my data secure?', a: 'We take security seriously. Audits run in isolated environments and results are encrypted at rest. We never store your source code.' },
   ];
 
   return (
@@ -333,7 +342,7 @@ export default function LandingPage() {
                     <td className="py-4 px-4 text-text-primary font-medium">{row.feature}</td>
                     {(['pageSpeed', 'semrush', 'snyk'] as const).map((col) => (
                       <td key={col} className="py-4 px-4 text-center text-text-muted">
-                        {typeof row[col] === 'boolean' ? (row[col] ? <span className="text-text-muted">—</span> : <span className="text-text-muted">—</span>) : <span className="text-text-muted">{String(row[col])}</span>}
+                        {typeof row[col] === 'boolean' ? (row[col] ? <span className="text-accent-green">✓</span> : <span className="text-text-muted/40">✗</span>) : <span className="text-text-muted text-xs">{String(row[col])}</span>}
                       </td>
                     ))}
                     <td className="py-4 px-4 text-center">

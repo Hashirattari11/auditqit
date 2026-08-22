@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AuditProgress from '@/components/AuditProgress';
+import ReportChat from '@/components/ReportChat';
 
 interface AuditData {
   id: string;
@@ -469,6 +470,9 @@ export default function ReportPage() {
           </div>
         )}
       </div>
+
+      {/* Chatbot */}
+      <ReportChat auditId={auditId} />
     </main>
   );
 }
