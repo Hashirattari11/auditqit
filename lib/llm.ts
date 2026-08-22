@@ -1,16 +1,15 @@
 import OpenAI from 'openai';
 
+// Gemini API via OpenAI-compatible endpoint for report summaries
 const client = new OpenAI({
-  apiKey: process.env.LLM_API_KEY || 'sk-placeholder',
-  baseURL: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
+  apiKey: process.env.GEMINI_API_KEY || process.env.LLM_API_KEY || 'sk-placeholder',
+  baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai',
 });
 
-// Fallback models in case the primary one fails
+// Fallback models — Gemini first
 const FALLBACK_MODELS = [
-  process.env.LLM_MODEL,
-  'meta/llama-3.3-70b-instruct',
-  'microsoft/phi-4-mini-instruct',
-  'nvidia/nemotron-mini-4b-instruct',
+  process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  'gemini-1.5-flash',
 ].filter(Boolean) as string[];
 
 const WEB_AUDIT_PROMPT = `You are a web performance expert. Analyze these audit results and provide:

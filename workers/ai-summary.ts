@@ -1,14 +1,14 @@
 import OpenAI from 'openai';
 
+// Gemini API via OpenAI-compatible endpoint for AI report analysis
 const client = new OpenAI({
-  apiKey: process.env.LLM_API_KEY || process.env.NVIDIA_API_KEY || 'sk-placeholder',
-  baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+  apiKey: process.env.GEMINI_API_KEY || process.env.LLM_API_KEY || 'sk-placeholder',
+  baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai',
 });
 
 const FALLBACK_MODELS = [
-  process.env.LLM_MODEL,
-  'nvidia/llama-3.3-nemotron-super-49b-v1',
-  'meta/llama-3.3-70b-instruct',
+  process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  'gemini-1.5-flash',
 ].filter(Boolean) as string[];
 
 export interface AIResult {
