@@ -71,8 +71,8 @@ export default function DashboardPage() {
             >
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
               {item.label}
-              {item.pro && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue font-semibold">PRO</span>}
-              {item.team && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-semibold">TEAM</span>}
+              {!isAdmin && item.pro && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue font-semibold">PRO</span>}
+              {!isAdmin && item.team && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-semibold">TEAM</span>}
             </button>
           ))}
         </nav>
@@ -641,6 +641,8 @@ function MonitorsTab() {
 
 /* ── Team Tab ─────────────────────────────────────── */
 function TeamTab() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.email === ADMIN_EMAIL;
   const [team, setTeam] = useState<any>(null);
 
   useEffect(() => {
@@ -656,9 +658,18 @@ function TeamTab() {
         </div>
         <div className="card text-center py-12">
           <p className="text-4xl mb-3">&#x1F465;</p>
-          <p className="text-text-secondary mb-2">Team features require the Team plan</p>
-          <p className="text-sm text-text-muted mb-4">Get 5 team members, shared audits, bulk scanning, and white-label reports.</p>
-          <a href="/pricing" className="btn-primary text-sm">Upgrade to Team</a>
+          {isAdmin ? (
+            <>
+              <p className="text-text-secondary mb-2">Admin access — create a team to start collaborating</p>
+              <p className="text-sm text-text-muted mb-4">Full team features available with your admin account.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-text-secondary mb-2">Team features require the Team plan</p>
+              <p className="text-sm text-text-muted mb-4">Get 5 team members, shared audits, bulk scanning, and white-label reports.</p>
+              <a href="/pricing" className="btn-primary text-sm">Upgrade to Team</a>
+            </>
+          )}
         </div>
       </div>
     );

@@ -1,15 +1,15 @@
 import OpenAI from 'openai';
 
-// Gemini API via OpenAI-compatible endpoint for report summaries
+// NVIDIA NIM for report summaries (confirmed working)
 const client = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.LLM_API_KEY || 'sk-placeholder',
-  baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai',
+  apiKey: process.env.LLM_API_KEY || 'sk-placeholder',
+  baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-// Fallback models — Gemini first
+// Fallback models — NVIDIA first
 const FALLBACK_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  process.env.LLM_MODEL || 'nvidia/llama-3.3-nemotron-super-49b-v1',
+  'meta/llama-3.3-70b-instruct',
 ].filter(Boolean) as string[];
 
 const WEB_AUDIT_PROMPT = `You are a web performance expert. Analyze these audit results and provide:
