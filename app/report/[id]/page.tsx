@@ -100,6 +100,29 @@ export default function ReportPage() {
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await fetch(`/api/report/${auditId}/pdf`);
+      if (!res.ok) {
+        // Fallback to browser print
+        window.print();
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-report-${auditId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback to browser print
+      window.print();
+    }
+  };
+
   // Progress view
   if (loading || status === 'pending' || status === 'running') {
     return (
@@ -193,7 +216,7 @@ export default function ReportPage() {
           <div className="flex items-center gap-3">
             <button onClick={handleRerun} className="px-4 py-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-sm hover:bg-accent-purple/20">Re-run</button>
             <button onClick={handleShare} className="px-4 py-2 rounded-lg bg-bg-surface border border-border-subtle text-sm">Share</button>
-            <button onClick={handlePrint} className="px-4 py-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm hover:bg-accent-blue/20">Download PDF</button>
+            <button onClick={handleDownloadPdf} className="px-4 py-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm hover:bg-accent-blue/20">Download PDF</button>
           </div>
         </div>
       </header>

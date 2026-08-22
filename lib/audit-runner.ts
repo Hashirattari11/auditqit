@@ -1,8 +1,6 @@
 import { db } from '@/lib/db';
 import { withTimeout } from '@/lib/timeout';
 
-const runningJobs = new Set<string>();
-
 export interface AuditRunResult {
   status: 'completed' | 'failed';
   results: Record<string, unknown>;
@@ -10,15 +8,16 @@ export interface AuditRunResult {
 }
 
 export async function runAuditInline(url: string, auditId: string): Promise<AuditRunResult> {
-  if (runningJobs.has(auditId)) {
-    const existing = await db.getAudit(auditId);
+  // DB-based guard: check current status instead of in-memory Set
+  // (in-memory Set persists across warm serverless instances causing stale locks)
+  const existing = await db.getAudit(auditId);
+  if (existing && (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'running')) {
     return {
-      status: (existing?.status as any) || 'running',
-      results: existing?.results || {},
-      aiSummary: existing?.ai_summary || '',
+      status: existing.status as any,
+      results: existing.results || {},
+      aiSummary: existing.ai_summary || '',
     };
   }
-  runningJobs.add(auditId);
 
   try {
     // Dynamic imports to avoid bundle-time failures
@@ -135,11 +134,5 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
       results: { error: errMsg } as any,
     });
     return { status: 'failed', results: { error: errMsg }, aiSummary: '' };
-  } finally {
-    runningJobs.delete(auditId);
   }
-}
-
-export function isAuditRunning(auditId: string): boolean {
-  return runningJobs.has(auditId);
 }
