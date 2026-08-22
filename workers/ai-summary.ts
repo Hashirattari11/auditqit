@@ -1,15 +1,19 @@
 import OpenAI from 'openai';
 
-// NVIDIA NIM for AI report analysis (confirmed working)
-const client = new OpenAI({
+// Gemini client (primary)
+const geminiClient = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY || 'sk-placeholder',
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+});
+
+// NVIDIA client (fallback)
+const nvidiaClient = new OpenAI({
   apiKey: process.env.LLM_API_KEY || 'sk-placeholder',
   baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-const FALLBACK_MODELS = [
-  process.env.LLM_MODEL || 'nvidia/llama-3.3-nemotron-super-49b-v1',
-  'meta/llama-3.3-70b-instruct',
-].filter(Boolean) as string[];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const NVIDIA_MODELS = ['nvidia/llama-3.3-nemotron-super-49b-v1', 'meta/llama-3.3-70b-instruct'];
 
 export interface AIResult {
   summary: string;
@@ -103,7 +107,13 @@ Do NOT give generic advice. Reference the actual bugs found above.
 If no bugs found in a category, say "None detected".
 End with 3 QUICK WINS — things that take under 1 hour to fix and would improve the site most.`;
 
-  for (const model of FALLBACK_MODELS) {
+  // Try Gemini first, then NVIDIA fallback
+  const allAttempts: { client: OpenAI; model: string }[] = [
+    ...GEMINI_MODELS.map(m => ({ client: geminiClient, model: m })),
+    ...NVIDIA_MODELS.map(m => ({ client: nvidiaClient, model: m })),
+  ];
+
+  for (const { client, model } of allAttempts) {
     try {
       const response = await client.chat.completions.create(
         {

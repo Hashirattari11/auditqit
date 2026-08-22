@@ -1,16 +1,19 @@
 import OpenAI from 'openai';
 
-// NVIDIA NIM for report summaries (confirmed working)
-const client = new OpenAI({
+// Gemini client (primary)
+const geminiClient = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY || 'sk-placeholder',
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+});
+
+// NVIDIA client (fallback)
+const nvidiaClient = new OpenAI({
   apiKey: process.env.LLM_API_KEY || 'sk-placeholder',
   baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-// Fallback models — NVIDIA first
-const FALLBACK_MODELS = [
-  process.env.LLM_MODEL || 'nvidia/llama-3.3-nemotron-super-49b-v1',
-  'meta/llama-3.3-70b-instruct',
-].filter(Boolean) as string[];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const NVIDIA_MODELS = ['nvidia/llama-3.3-nemotron-super-49b-v1', 'meta/llama-3.3-70b-instruct'];
 
 const WEB_AUDIT_PROMPT = `You are a web performance expert. Analyze these audit results and provide:
 1. Overall health score (0-100)
@@ -36,13 +39,14 @@ Format in clean markdown sections. Be specific with line references and file pat
 Use code blocks for all code suggestions.`;
 
 async function tryGenerate(
+  aiClient: OpenAI,
   model: string,
   systemPrompt: string,
   userContent: string,
   maxTokens: number
 ): Promise<string | null> {
   try {
-    const response = await client.chat.completions.create({
+    const response = await aiClient.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -59,18 +63,26 @@ async function tryGenerate(
   }
 }
 
-export async function generateAISummary(auditResults: Record<string, unknown>): Promise<string> {
-  const userContent = `Analyze these web audit results and provide your expert assessment:\n\n${JSON.stringify(auditResults, null, 2)}`;
+// Try Gemini first, then NVIDIA fallback
+async function tryAllModels(systemPrompt: string, userContent: string, maxTokens: number): Promise<string> {
+  const allAttempts: { client: OpenAI; model: string }[] = [
+    ...GEMINI_MODELS.map(m => ({ client: geminiClient, model: m })),
+    ...NVIDIA_MODELS.map(m => ({ client: nvidiaClient, model: m })),
+  ];
 
-  for (const model of FALLBACK_MODELS) {
-    const result = await tryGenerate(model, WEB_AUDIT_PROMPT, userContent, 2000);
+  for (const { client: aiClient, model } of allAttempts) {
+    const result = await tryGenerate(aiClient, model, systemPrompt, userContent, maxTokens);
     if (result) return result;
   }
   return '';
 }
 
+export async function generateAISummary(auditResults: Record<string, unknown>): Promise<string> {
+  const userContent = `Analyze these web audit results and provide your expert assessment:\n\n${JSON.stringify(auditResults, null, 2)}`;
+  return tryAllModels(WEB_AUDIT_PROMPT, userContent, 2000);
+}
+
 export async function generateGitHubAISummary(auditResults: Record<string, unknown>): Promise<string> {
-  // Truncate results if too large for context window
   let resultsStr = JSON.stringify(auditResults, null, 2);
   if (resultsStr.length > 30000) {
     const truncated = {
@@ -82,10 +94,5 @@ export async function generateGitHubAISummary(auditResults: Record<string, unkno
   }
 
   const userContent = `Analyze this GitHub repository code audit and provide your expert review:\n\n${resultsStr}`;
-
-  for (const model of FALLBACK_MODELS) {
-    const result = await tryGenerate(model, GITHUB_AUDIT_PROMPT, userContent, 4000);
-    if (result) return result;
-  }
-  return '';
+  return tryAllModels(GITHUB_AUDIT_PROMPT, userContent, 4000);
 }
