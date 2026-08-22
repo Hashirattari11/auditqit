@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AutoFixPanel from '@/components/AutoFixPanel';
+import AutoFixPRPanel from '@/components/AutoFixPRPanel';
 
 interface RepoAuditData {
   id: string;
@@ -182,6 +183,7 @@ export default function GitHubReportPage() {
   const issues = results.issues || [];
   const repoInfo = results.repo || {};
   const fileStats = results.fileStats || [];
+  const issueCount = issues.length;
 
   // Filter issues
   const filteredIssues = issues.filter((issue: any) => {
@@ -284,6 +286,16 @@ export default function GitHubReportPage() {
           </div>
         </section>
       )}
+
+      {/* Auto-Fix PR Panel */}
+      <section className="max-w-6xl mx-auto px-4 pb-6">
+        <AutoFixPRPanel
+          auditId={auditId}
+          issueCount={issueCount}
+          isPro={true}
+          repoUrl={report.repoUrl || `https://github.com/${report.owner}/${report.repo}`}
+        />
+      </section>
 
       {/* Issues Section */}
       <section className="max-w-6xl mx-auto px-4 pb-6">

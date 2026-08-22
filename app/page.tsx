@@ -126,6 +126,7 @@ export default function LandingPage() {
     { icon: '🐛', title: 'Code Bug Detection', desc: 'Static analysis for GitHub repos — find bugs before your users do.', color: 'from-red-500/20 to-pink-500/20' },
     { icon: '🤖', title: 'AI Fix Suggestions', desc: 'Exact corrected code for every critical issue — not just tips.', color: 'from-purple-500/20 to-violet-500/20' },
     { icon: '📊', title: 'Beautiful Reports', desc: 'Shareable links, downloadable PDFs, email delivery.', color: 'from-indigo-500/20 to-blue-500/20' },
+    { icon: '🚀', title: 'Pre-Launch Checklist', desc: '18 critical checks before going live. Catch issues before your users do.', color: 'from-pink-500/20 to-rose-500/20' },
   ];
 
   const steps = [
@@ -142,6 +143,8 @@ export default function LandingPage() {
     { feature: 'AI Fix Code',          pageSpeed: false, semrush: false, snyk: false, auditiq: true  },
     { feature: 'PDF Reports',          pageSpeed: false, semrush: true,  snyk: false, auditiq: true  },
     { feature: 'Shareable Links',      pageSpeed: false, semrush: true,  snyk: false, auditiq: true  },
+    { feature: 'Pre-Launch Checklist', pageSpeed: false, semrush: false, snyk: false, auditiq: true  },
+    { feature: 'AI Auto-Fix PR',       pageSpeed: false, semrush: false, snyk: false, auditiq: true  },
     { feature: 'Price',                pageSpeed: 'Free', semrush: '$119+', snyk: '$25+', auditiq: 'Free/$9' },
   ];
 

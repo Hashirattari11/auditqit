@@ -63,6 +63,8 @@ export interface User {
   stripe_subscription_id: string | null;
   audits_this_month: number;
   month_reset_date: string;
+  github_access_token: string | null;
+  github_username: string | null;
   created_at: string;
 }
 
@@ -239,7 +241,7 @@ export const db = {
     return data as User;
   },
 
-  async updateUser(id: string, updates: Partial<Pick<User, 'name' | 'plan' | 'stripe_customer_id' | 'stripe_subscription_id' | 'audits_this_month' | 'month_reset_date'>>) {
+  async updateUser(id: string, updates: Partial<Pick<User, 'name' | 'plan' | 'stripe_customer_id' | 'stripe_subscription_id' | 'audits_this_month' | 'month_reset_date' | 'github_access_token' | 'github_username'>>) {
     const { error } = await supabase
       .from('users')
       .update(updates)
