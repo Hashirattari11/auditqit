@@ -12,7 +12,7 @@ export async function runSEO(url: string, html: string): Promise<SEOResult> {
   let score = 100;
 
   if (!html) {
-    return { score: 0, issues: [{ severity: 'critical', issue: 'Could not fetch page HTML', fix: 'Check if URL is accessible' }], details: {} };
+    throw new Error('Could not fetch page HTML — the site may block automated requests or require JavaScript to render');
   }
 
   const $ = cheerio.load(html);

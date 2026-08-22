@@ -11,7 +11,27 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
   // DB-based guard: check current status instead of in-memory Set
   // (in-memory Set persists across warm serverless instances causing stale locks)
   const existing = await db.getAudit(auditId);
-  if (existing && (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'running')) {
+  if (existing && existing.status === 'running') {
+    return {
+      status: existing.status as any,
+      results: existing.results || {},
+      aiSummary: existing.ai_summary || '',
+    };
+  }
+  // If completed but ALL scores are 0 (workers all failed), allow re-run
+  if (existing && existing.status === 'completed' && existing.results) {
+    const r = existing.results as any;
+    const hasData = (r.performance?.performance ?? 0) > 0 || (r.security?.score ?? 0) > 0 || (r.seo?.score ?? 0) > 0;
+    if (!hasData && !r.fetch?.error) {
+      // All workers returned 0 — treat as incomplete, re-run
+    } else {
+      return {
+        status: existing.status as any,
+        results: existing.results || {},
+        aiSummary: existing.ai_summary || '',
+      };
+    }
+  } else if (existing && existing.status === 'failed') {
     return {
       status: existing.status as any,
       results: existing.results || {},
@@ -41,20 +61,20 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
 
     // Step 1: Fetch
     await db.updateAudit(auditId, { status: 'running', current_step: STEP_KEYS.fetch });
-    const fetchData = await withTimeout(runFetch(url), 15000, 'fetch').catch(() => ({
-      html: '', statusCode: 0, responseTime: 0, finalUrl: url, contentLength: null, contentType: null, error: 'Timeout',
+    const fetchData = await withTimeout(runFetch(url), 20000, 'fetch').catch((e) => ({
+      html: '', statusCode: 0, responseTime: 0, finalUrl: url, contentLength: null, contentType: null, error: e?.message || 'Fetch failed', workerFailed: true,
     }));
 
     // Step 2: Security
     await db.updateAudit(auditId, { current_step: STEP_KEYS.security });
-    const securityData = await withTimeout(runSecurity(url), 10000, 'security').catch(() => ({
-      headers: {}, score: 0, isHttps: false, issues: [], statusCode: 0,
+    const securityData = await withTimeout(runSecurity(url), 15000, 'security').catch((e) => ({
+      headers: {}, score: 0, isHttps: false, issues: [{ severity: 'critical', issue: 'Security scan failed', description: e?.message || 'Could not connect', fix: 'Check if URL is accessible' }], statusCode: 0, workerFailed: true,
     }));
 
     // Step 3: SEO
     await db.updateAudit(auditId, { current_step: STEP_KEYS.seo });
-    const seoData = await withTimeout(runSEO(url, fetchData.html), 10000, 'seo').catch(() => ({
-      score: 0, issues: [], details: {},
+    const seoData = await withTimeout(runSEO(url, fetchData.html), 15000, 'seo').catch((e) => ({
+      score: 0, issues: [{ severity: 'critical', issue: 'SEO scan failed', fix: e?.message || 'Could not analyze page' }], details: {}, workerFailed: true,
     }));
 
     // Step 4: Links
@@ -68,28 +88,35 @@ export async function runAuditInline(url: string, auditId: string): Promise<Audi
     const perfData = await withTimeout(runLighthouse(url), 45000, 'performance').catch(() => ({
       performance: 0, seo: 0, accessibility: 0, bestPractices: 0,
       metrics: { lcp: null, cls: null, fcp: null, ttfb: null, tbt: null },
-      raw: {},
+      raw: {}, workerFailed: true,
     }));
 
     // Step 6: JS Errors (Playwright)
     await db.updateAudit(auditId, { current_step: STEP_KEYS.errors });
     const errorsData = await withTimeout(runPlaywright(url), 30000, 'errors').catch(() => ({
-      consoleErrors: [], failedRequests: [], frontendBugs: [], desktopScreenshot: null, mobileScreenshot: null, errorCount: 0, failedRequestCount: 0, frontendBugCount: 0,
+      consoleErrors: [], failedRequests: [], frontendBugs: [], desktopScreenshot: null, mobileScreenshot: null, errorCount: 0, failedRequestCount: 0, frontendBugCount: 0, workerFailed: true,
     }));
 
     // Step 7: AI Analysis
     await db.updateAudit(auditId, { current_step: STEP_KEYS.ai });
     const aiData = await withTimeout(
       runAI({ url, securityData, seoData, linksData, perfData, errorsData }),
-      30000,
+      60000,
       'ai'
     ).catch(() => ({
-      summary: 'AI analysis unavailable', issueCount: 0, criticalCount: 0, highCount: 0, allIssues: [], overallScore: 0,
+      summary: '', issueCount: 0, criticalCount: 0, highCount: 0, allIssues: [], overallScore: 0,
     }));
 
-    // Calculate overall score
-    const scores = [perfData.performance, seoData.score, securityData.score].filter((s) => s > 0);
-    const overallScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    // Calculate overall score — only count workers that succeeded
+    const workerScores: { name: string; score: number; failed: boolean }[] = [
+      { name: 'performance', score: perfData.performance ?? 0, failed: !!(perfData as any).workerFailed },
+      { name: 'seo', score: seoData.score ?? 0, failed: !!(seoData as any).workerFailed },
+      { name: 'security', score: securityData.score ?? 0, failed: !!(securityData as any).workerFailed },
+    ];
+    const succeeded = workerScores.filter(s => !s.failed && s.score > 0);
+    const overallScore = succeeded.length > 0
+      ? Math.round(succeeded.reduce((a, b) => a + b.score, 0) / succeeded.length)
+      : 0;
 
     // Complete
     await db.updateAudit(auditId, {

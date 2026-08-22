@@ -238,10 +238,10 @@ export default function ReportPage() {
 
         {/* 2. Score Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <ScoreCard label="Performance" score={perf?.performance ?? 0} icon="⚡" />
-          <ScoreCard label="SEO" score={seo?.score ?? 0} icon="🔍" />
-          <ScoreCard label="Security" score={security?.score ?? 0} icon="🔒" />
-          <ScoreCard label="Overall" score={overallScore} icon="📊" />
+          <ScoreCard label="Performance" score={perf?.performance ?? 0} icon="⚡" failed={!!perf?.workerFailed} />
+          <ScoreCard label="SEO" score={seo?.score ?? 0} icon="🔍" failed={!!seo?.workerFailed} />
+          <ScoreCard label="Security" score={security?.score ?? 0} icon="🔒" failed={!!security?.workerFailed} />
+          <ScoreCard label="Overall" score={overallScore} icon="📊" failed={false} />
         </div>
 
         {/* 3. BUGS FOUND — THE MAIN EVENT */}
@@ -308,9 +308,14 @@ export default function ReportPage() {
             </div>
           </div>
         )}
-        {!ai?.summary && (
-          <div className="mb-8 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center">
-            <p className="text-yellow-400 text-sm">🤖 AI analysis unavailable — all bug data above is still valid from automated scanning.</p>
+        {!ai?.summary && allBugs.length > 0 && (
+          <div className="mb-8 p-4 rounded-xl bg-bg-surface border border-border-subtle text-center">
+            <p className="text-text-secondary text-sm">🤖 AI summary unavailable — {allBugs.length} issue(s) found by automated scanning above.</p>
+          </div>
+        )}
+        {!ai?.summary && allBugs.length === 0 && (
+          <div className="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-center">
+            <p className="text-green-400 text-sm">🤖 No issues detected — automated scan passed clean.</p>
           </div>
         )}
 
@@ -514,7 +519,17 @@ function ScoreCircle({ score, size = 128 }: { score: number; size?: number }) {
   );
 }
 
-function ScoreCard({ label, score, icon }: { label: string; score: number; icon: string }) {
+function ScoreCard({ label, score, icon, failed }: { label: string; score: number; icon: string; failed?: boolean }) {
+  if (failed) {
+    return (
+      <div className="p-4 rounded-xl border text-center bg-white/5 border-white/10">
+        <div className="text-2xl mb-1">{icon}</div>
+        <div className="text-2xl font-bold text-white/40">N/A</div>
+        <div className="text-xs text-white/40">{label}</div>
+        <div className="text-[10px] text-white/30 mt-1">Unable to measure</div>
+      </div>
+    );
+  }
   const getColor = (s: number) => {
     if (s >= 80) return 'text-green-400 bg-green-500/10 border-green-500/20';
     if (s >= 50) return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';

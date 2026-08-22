@@ -2,19 +2,26 @@ import OpenAI from 'openai';
 
 // Gemini client (primary) — official OpenAI-compatible endpoint
 const geminiClient = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY || 'sk-placeholder',
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  apiKey: process.env.GEMINI_API_KEY || '',
+  baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
 
 // NVIDIA client (fallback)
 const nvidiaClient = new OpenAI({
-  apiKey: process.env.LLM_API_KEY || 'sk-placeholder',
+  apiKey: process.env.LLM_API_KEY || '',
   baseURL: process.env.LLM_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-// Official model names — MUST match Google's docs exactly
-const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'];
-const NVIDIA_MODELS = ['nvidia/llama-3.3-nemotron-super-49b-v1', 'meta/llama-3.3-70b-instruct'];
+// Official model names — respect env overrides, fallback to known-good defaults
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  'gemini-2.5-flash',
+  'gemini-3.5-flash',
+];
+const NVIDIA_MODELS = [
+  process.env.LLM_MODEL || 'nvidia/llama-3.3-nemotron-super-49b-v1',
+  'nvidia/llama-3.3-nemotron-super-49b-v1',
+];
 
 /** Sleep helper for retry backoff */
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -111,28 +118,32 @@ Do NOT give generic advice. Reference the actual bugs found above.
 If no bugs found in a category, say "None detected".
 End with 3 QUICK WINS — things that take under 1 hour to fix and would improve the site most.`;
 
-  // Try Gemini first, then NVIDIA fallback
-  const allAttempts: { client: OpenAI; model: string }[] = [
-    ...GEMINI_MODELS.map(m => ({ client: geminiClient, model: m })),
-    ...NVIDIA_MODELS.map(m => ({ client: nvidiaClient, model: m })),
-  ];
+  // Try Gemini first, then NVIDIA fallback — deduplicate models
+  const seenModels = new Set<string>();
+  const allAttempts: { client: OpenAI; model: string }[] = [];
+  for (const m of GEMINI_MODELS) {
+    if (!seenModels.has(m)) { seenModels.add(m); allAttempts.push({ client: geminiClient, model: m }); }
+  }
+  for (const m of NVIDIA_MODELS) {
+    if (!seenModels.has(m)) { seenModels.add(m); allAttempts.push({ client: nvidiaClient, model: m }); }
+  }
 
   for (const { client, model } of allAttempts) {
-    // Retry up to 2 times for rate limits (429)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await client.chat.completions.create(
-          {
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 2000,
-          },
-          { timeout: 30000 }
-        );
+    try {
+      console.log(`[AI] Trying model: ${model}`);
+      const response = await client.chat.completions.create(
+        {
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 2000,
+        },
+        { timeout: 15000 }
+      );
 
-        const aiText = response.choices[0]?.message?.content || '';
-
+      const aiText = response.choices[0]?.message?.content || '';
+      if (aiText) {
+        console.log(`[AI] Success with model: ${model} (${aiText.length} chars)`);
         return {
           summary: aiText,
           issueCount: allIssues.length,
@@ -141,15 +152,9 @@ End with 3 QUICK WINS — things that take under 1 hour to fix and would improve
           allIssues,
           overallScore,
         };
-      } catch (error: any) {
-        const is429 = error?.status === 429;
-        console.error(`AI generation failed with model ${model} (attempt ${attempt + 1}):`, error?.message || error);
-        if (is429 && attempt < 1) {
-          await sleep(2000); // wait 2s before retry on rate limit
-          continue;
-        }
-        break; // non-retryable error, move to next model
       }
+    } catch (error: any) {
+      console.error(`[AI] Model ${model} failed:`, error?.status, error?.message?.slice(0, 100));
     }
   }
 
