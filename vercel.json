@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
   "installCommand": "npm install",
   "buildCommand": "next build",
   "outputDirectory": ".next"

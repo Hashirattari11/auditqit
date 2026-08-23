@@ -34,6 +34,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
+          <Link href="/checklist" className="text-sm text-pink-400 hover:text-pink-300 transition-colors font-medium">🚀 Pre-Launch</Link>
           <Link href="/roast" className="text-sm text-orange-400 hover:text-orange-300 transition-colors font-medium">🔥 Roast</Link>
           <Link href="/vs" className="text-sm text-yellow-400 hover:text-yellow-300 transition-colors font-medium">⚔️ VS Battle</Link>
           <Link href="/#features" className="text-sm text-text-secondary hover:text-text-primary transition-colors">Features</Link>
@@ -69,6 +70,7 @@ export default function Navbar() {
 
       {mobileOpen && (
         <div className="md:hidden glass mt-2 mx-4 rounded-xl p-4 space-y-3 animate-scale-in">
+          <Link href="/checklist" className="block py-2 text-pink-400 hover:text-pink-300 font-medium" onClick={() => setMobileOpen(false)}>🚀 Pre-Launch</Link>
           <Link href="/roast" className="block py-2 text-orange-400 hover:text-orange-300 font-medium" onClick={() => setMobileOpen(false)}>🔥 Roast My Site</Link>
           <Link href="/vs" className="block py-2 text-yellow-400 hover:text-yellow-300 font-medium" onClick={() => setMobileOpen(false)}>⚔️ VS Battle</Link>
           <Link href="/#features" className="block py-2 text-text-secondary hover:text-text-primary" onClick={() => setMobileOpen(false)}>Features</Link>
