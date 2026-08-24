@@ -12,13 +12,13 @@ export async function POST(
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Please sign in first' }, { status: 401 });
     }
 
-    // Get user
+    // Get user from DB (fresh read for latest token)
     const { data: user } = await supabase
       .from('users')
-      .select('*')
+      .select('id, plan, github_access_token, github_username')
       .eq('id', session.user.id)
       .single();
 
@@ -27,19 +27,31 @@ export async function POST(
     }
 
     // Check Pro plan
-    if (user.plan === 'free') {
-      return NextResponse.json({ error: 'Auto-Fix PR requires Pro plan' }, { status: 403 });
+    const isAdmin = session.user.email === 'hashirattari73@gmail.com';
+    if (user.plan === 'free' && !isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Auto-Fix PR requires Pro plan',
+          action: 'upgrade',
+          upgradeUrl: '/pricing',
+        },
+        { status: 403 }
+      );
     }
 
     // Check GitHub connected
     if (!user.github_access_token) {
       return NextResponse.json(
-        { error: 'Connect your GitHub account first. Click "Sign in with GitHub" on the login page.' },
+        {
+          error: 'GitHub account not connected',
+          action: 'connect_github',
+          message: 'Please connect your GitHub account to use Auto-Fix PR. You can do this from Settings or by signing in with GitHub.',
+        },
         { status: 400 }
       );
     }
 
-    // Get repo audit
+    // Get the GitHub audit
     const { data: audit } = await supabase
       .from('repo_audits')
       .select('*')
@@ -87,6 +99,34 @@ export async function POST(
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('[auto-fix] Error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to create auto-fix PR' }, { status: 500 });
+
+    // GitHub token expired or revoked
+    if (err.status === 401 || err.message?.includes('Bad credentials')) {
+      // Clear invalid token from DB
+      try {
+        const session = await auth();
+        if (session?.user?.id) {
+          await supabase
+            .from('users')
+            .update({ github_access_token: null, github_username: null })
+            .eq('id', session.user.id);
+        }
+      } catch {
+        // Best effort cleanup
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'GitHub connection expired. Please reconnect your GitHub account.',
+          action: 'reconnect_github',
+        },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: err.message || 'Failed to create auto-fix PR' },
+      { status: 500 }
+    );
   }
 }

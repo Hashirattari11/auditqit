@@ -11,7 +11,15 @@ declare module 'next-auth' {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      plan: string;
+      hasGithubConnected: boolean;
+      githubUsername?: string | null;
     };
+  }
+  interface User {
+    plan?: string;
+    githubAccessToken?: string | null;
+    githubUsername?: string | null;
   }
 }
 
@@ -27,6 +35,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: 'read:user user:email repo',
+        },
+      },
     }),
     Credentials({
       name: 'credentials',
@@ -68,25 +81,108 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: '/auth/login',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async signIn({ user, account, profile }) {
+      // When signing in via GitHub, save the access token to DB
+      if (account?.provider === 'github' && account?.access_token) {
+        try {
+          const supabase = getSupabase();
+          const email = user.email || (profile as any)?.email;
+          if (email) {
+            await supabase
+              .from('users')
+              .update({
+                github_access_token: account.access_token,
+                github_username: (profile as any)?.login ?? user.name ?? '',
+              })
+              .eq('email', email);
+          }
+        } catch (err) {
+          console.error('[AUTH] Failed to save GitHub token:', err);
+        }
+      }
+      return true;
+    },
+
+    async jwt({ token, user, account, profile }) {
+      // On initial sign-in, capture user data
       if (user) {
         token.id = user.id;
       }
-      if (account?.provider === 'github') {
-        token.accessToken = account.access_token;
-        token.githubUsername = user.name || user.email;
+
+      // When signing in via GitHub, save token to DB (belt and suspenders)
+      if (account?.provider === 'github' && account?.access_token) {
+        token.githubAccessToken = account.access_token;
+        token.githubUsername = (profile as any)?.login ?? '';
+
+        // Persist to DB right here
+        if (token.email) {
+          try {
+            const supabase = getSupabase();
+            await supabase
+              .from('users')
+              .update({
+                github_access_token: account.access_token,
+                github_username: (profile as any)?.login ?? '',
+              })
+              .eq('email', token.email as string);
+          } catch (err) {
+            console.error('[JWT] Failed to save GitHub token to DB:', err);
+          }
+        }
       }
+
+      // On subsequent requests, load GitHub status from DB if not in token
+      if (!token.githubAccessToken && token.email) {
+        try {
+          const supabase = getSupabase();
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('github_access_token, github_username, plan')
+            .eq('email', token.email as string)
+            .single();
+
+          if (dbUser) {
+            if (dbUser.github_access_token) {
+              token.githubAccessToken = dbUser.github_access_token;
+              token.githubUsername = dbUser.github_username;
+            }
+            token.plan = dbUser.plan ?? 'free';
+          }
+        } catch (err) {
+          // Silent fail — session will show disconnected
+        }
+      }
+
       return token;
     },
+
     async session({ session, token }) {
-      if (session.user && token.id) {
+      if (session.user) {
         session.user.id = token.id as string;
-      }
-      if (token.accessToken) {
-        (session as any).accessToken = token.accessToken;
-      }
-      if (token.githubUsername) {
-        (session as any).githubUsername = token.githubUsername;
+        session.user.plan = (token.plan as string) ?? 'free';
+        session.user.hasGithubConnected = !!token.githubAccessToken;
+        session.user.githubUsername = (token.githubUsername as string) ?? null;
+
+        // Also fetch latest from DB to ensure freshness
+        if (session.user.email) {
+          try {
+            const supabase = getSupabase();
+            const { data: dbUser } = await supabase
+              .from('users')
+              .select('id, plan, github_access_token, github_username')
+              .eq('email', session.user.email)
+              .single();
+
+            if (dbUser) {
+              session.user.id = dbUser.id;
+              session.user.plan = dbUser.plan ?? 'free';
+              session.user.hasGithubConnected = !!dbUser.github_access_token;
+              session.user.githubUsername = dbUser.github_username;
+            }
+          } catch {
+            // Use JWT values as fallback
+          }
+        }
       }
       return session;
     },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import AutoFixPanel from '@/components/AutoFixPanel';
 import AutoFixPRPanel from '@/components/AutoFixPRPanel';
 
@@ -45,6 +46,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 export default function GitHubReportPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const auditId = params.id as string;
 
   const [status, setStatus] = useState<AuditStatus | null>(null);
@@ -287,13 +289,11 @@ export default function GitHubReportPage() {
         </section>
       )}
 
-      {/* Auto-Fix PR Panel */}
+      {/* Auto-Fix PR Panel — component reads session internally */}
       <section className="max-w-6xl mx-auto px-4 pb-6">
         <AutoFixPRPanel
           auditId={auditId}
           issueCount={issueCount}
-          isPro={true}
-          repoUrl={report.repoUrl || `https://github.com/${report.owner}/${report.repo}`}
         />
       </section>
 
