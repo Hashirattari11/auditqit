@@ -16,6 +16,137 @@ export interface AutoFixResult {
   branchName?: string;
 }
 
+/** Normalize any issue shape to a common matcher */
+function matchField(issue: any): string {
+  // Web audit uses `issue`, GitHub audit uses `title`
+  return (issue.issue || issue.title || issue.fixSuggestion || '').toLowerCase();
+}
+
+function matchFile(issue: any): string | undefined {
+  return issue.file || issue.filePath || issue.location || undefined;
+}
+
+function matchCategory(issue: any): string {
+  return (issue.category || issue.type || '').toLowerCase();
+}
+
+// ─── GitHub code-level auto-fix patterns ───
+interface CodeFixPattern {
+  pattern: RegExp;
+  matchTitle?: RegExp;     // match against issue title
+  matchCategory?: string;  // match against category
+  description: string;
+  replacement: (fullMatch: string, ...groups: string[]) => string;
+  impact: string;
+  type: string;
+}
+
+const CODE_FIXES: CodeFixPattern[] = [
+  // eval() → throw error
+  {
+    pattern: /eval\s*\([^)]*\)/g,
+    matchTitle: /eval/,
+    matchCategory: 'security',
+    description: 'Removed eval() call (security risk)',
+    replacement: () => '/* [AuditIQ] eval() removed — use JSON.parse() or safe alternative */',
+    impact: '+10 Security',
+    type: 'Security',
+  },
+  // innerHTML = → textContent =
+  {
+    pattern: /\.innerHTML\s*=/g,
+    matchTitle: /inner\s*html|xss/i,
+    matchCategory: 'security',
+    description: 'Changed innerHTML to textContent (XSS prevention)',
+    replacement: (match) => match.replace('innerHTML', 'textContent'),
+    impact: '+10 Security',
+    type: 'Security',
+  },
+  // document.write → console.warn
+  {
+    pattern: /document\.write\s*\([^)]*\)/g,
+    matchTitle: /document\.write/i,
+    matchCategory: 'security',
+    description: 'Replaced document.write() with safe alternative',
+    replacement: () => '/* [AuditIQ] document.write() removed — use DOM methods */',
+    impact: '+8 Security',
+    type: 'Security',
+  },
+  // new Function → throw
+  {
+    pattern: /new\s+Function\s*\([^)]*\)/g,
+    matchTitle: /function\s*constructor|dynamic.*function/i,
+    matchCategory: 'security',
+    description: 'Removed dynamic Function constructor (security risk)',
+    replacement: () => '/* [AuditIQ] Dynamic Function constructor removed */',
+    impact: '+8 Security',
+    type: 'Security',
+  },
+  // console.log/debug/info → remove or comment out
+  {
+    pattern: /console\.(?:log|debug|info)\s*\([^)]*\);?\s*\n?/g,
+    matchTitle: /console\.(log|debug|info)/i,
+    matchCategory: 'quality',
+    description: 'Removed console.log statements',
+    replacement: () => '',
+    impact: '+5 Quality',
+    type: 'Quality',
+  },
+  // == → === (but not ===, !==, ==)
+  {
+    pattern: /(?<!=)==(?!=)/g,
+    matchTitle: /loose\s*equality|==\s*instead/i,
+    matchCategory: 'bug',
+    description: 'Changed == to === (strict equality)',
+    replacement: () => '===',
+    impact: '+5 Quality',
+    type: 'Bug Fix',
+  },
+  // var → const (basic)
+  {
+    pattern: /\bvar\s+(\w+)\s*=/g,
+    matchTitle: /\bvar\b.*keyword|use.*const/i,
+    matchCategory: 'quality',
+    description: 'Changed var to const',
+    replacement: (match, varName) => match.replace(/\bvar\b/, 'const'),
+    impact: '+3 Quality',
+    type: 'Quality',
+  },
+  // Empty catch block
+  {
+    pattern: /catch\s*\(\s*\w*\s*\)\s*\{\s*\}/g,
+    matchTitle: /empty\s*catch/i,
+    matchCategory: 'bug',
+    description: 'Added error logging to empty catch block',
+    replacement: (match) => {
+      const varName = match.match(/catch\s*\(\s*(\w*)/)?.[1] || 'e';
+      return `catch (${varName}) { console.error('[AuditIQ] Caught error:', ${varName}); }`;
+    },
+    impact: '+5 Quality',
+    type: 'Bug Fix',
+  },
+  // setTimeout with string
+  {
+    pattern: /setTimeout\s*\(\s*["'][^"']+["']/g,
+    matchTitle: /settimeout.*string/i,
+    matchCategory: 'security',
+    description: 'Removed string argument setTimeout (security risk)',
+    replacement: () => '/* [AuditIQ] setTimeout with string removed — use function reference */',
+    impact: '+8 Security',
+    type: 'Security',
+  },
+  // HTTP URLs → HTTPS
+  {
+    pattern: /["']http:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0)/g,
+    matchTitle: /insecure\s*http|http.*https/i,
+    matchCategory: 'security',
+    description: 'Upgraded HTTP to HTTPS',
+    replacement: (match) => match.replace('http://', 'https://'),
+    impact: '+5 Security',
+    type: 'Security',
+  },
+];
+
 export async function createAutoFixPR({
   githubToken,
   repoOwner,
@@ -45,11 +176,110 @@ export async function createAutoFixPR({
   });
   const baseSha = ref.object.sha;
 
-  // ─── FIX 1: Missing meta description ───
-  const metaIssue = issues.find(
-    (i) => i.issue?.includes('meta description') || i.type?.includes('meta description')
-  );
-  if (metaIssue) {
+  // ═══════════════════════════════════════════════════
+  // PHASE 1: Code-level fixes (GitHub audit issues)
+  // ═══════════════════════════════════════════════════
+  // Group issues by file
+  const issuesByFile = new Map<string, any[]>();
+  for (const issue of issues) {
+    const filePath = matchFile(issue);
+    if (filePath && issue.fixedCode) {
+      // These have explicit fixed code from the analyzer
+      if (!issuesByFile.has(filePath)) issuesByFile.set(filePath, []);
+      issuesByFile.get(filePath)!.push(issue);
+    }
+  }
+
+  // Apply explicit fixedCode suggestions
+  for (const [filePath, fileIssues] of issuesByFile) {
+    let content = fileChanges.get(filePath) ?? (await getFileContent(octokit, repoOwner, repoName, filePath));
+    if (!content) continue;
+
+    let changed = false;
+    for (const issue of fileIssues) {
+      if (issue.fixedCode && issue.codeSnippet) {
+        // Try to find and replace the snippet
+        const snippet = issue.codeSnippet.trim();
+        const fixed = issue.fixedCode.trim();
+        if (content.includes(snippet) && fixed) {
+          content = content.replace(snippet, fixed);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      fileChanges.set(filePath, content);
+      fixesApplied.push({
+        type: 'Code Fix',
+        fix: `Applied ${fileIssues.length} code fix${fileIssues.length > 1 ? 'es' : ''} in ${filePath}`,
+        file: filePath,
+        impact: `+${fileIssues.length * 5} Code Quality`,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // PHASE 2: Pattern-based code fixes
+  // ═══════════════════════════════════════════════════
+  // Find all source files that have matching issues
+  const sourceFiles = await findFiles(octokit, repoOwner, repoName, [
+    '.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte',
+  ]);
+
+  for (const filePath of sourceFiles) {
+    const rawContent = fileChanges.get(filePath) ?? (await getFileContent(octokit, repoOwner, repoName, filePath));
+    if (!rawContent) continue;
+    let content: string = rawContent;
+
+    let totalReplacements = 0;
+    const appliedFixes: string[] = [];
+
+    for (const fixPattern of CODE_FIXES) {
+      // Check if this pattern matches any of the reported issues
+      const matchingIssue = issues.find((i) => {
+        const title = matchField(i);
+        const cat = matchCategory(i);
+        if (fixPattern.matchTitle && fixPattern.matchTitle.test(title)) return true;
+        if (fixPattern.matchCategory && cat.includes(fixPattern.matchCategory)) return true;
+        return false;
+      });
+
+      if (!matchingIssue) continue;
+
+      // Apply the fix pattern to the file
+      fixPattern.pattern.lastIndex = 0;
+      const replaced: string = content.replace(fixPattern.pattern, (match: string, ...rest: string[]) => {
+        totalReplacements++;
+        return fixPattern.replacement(match, ...rest);
+      });
+
+      if (replaced !== content) {
+        content = replaced;
+        if (!appliedFixes.includes(fixPattern.description)) {
+          appliedFixes.push(fixPattern.description);
+        }
+      }
+    }
+
+    if (totalReplacements > 0) {
+      fileChanges.set(filePath, content);
+      fixesApplied.push({
+        type: 'Code Fix',
+        fix: `${totalReplacements} fixes in ${filePath}: ${appliedFixes.join('; ')}`,
+        file: filePath,
+        impact: `+${totalReplacements * 3} Code Quality`,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // PHASE 3: Web-audit-style fixes (for repos with HTML/config)
+  // ═══════════════════════════════════════════════════
+  const allText = issues.map(i => matchField(i)).join(' ') + ' ' + issues.map(i => matchCategory(i)).join(' ');
+
+  // Fix: Missing meta description
+  if (/meta\s*description/i.test(allText)) {
     const htmlFiles = await findFiles(octokit, repoOwner, repoName, ['.html']);
     for (const file of htmlFiles.slice(0, 3)) {
       const content = fileChanges.get(file) ?? (await getFileContent(octokit, repoOwner, repoName, file));
@@ -64,12 +294,8 @@ export async function createAutoFixPR({
     }
   }
 
-  // ─── FIX 2: Missing security headers ───
-  const securityIssues = issues.filter(
-    (i) => i.issue?.includes('Missing') && (i.category === 'Security' || i.type?.includes('Security'))
-  );
-  if (securityIssues.length > 0) {
-    // Create _headers file (Netlify/Vercel)
+  // Fix: Missing security headers
+  if (issues.some(i => /missing.*(?:security|header)/i.test(matchField(i))) || allText.includes('security header')) {
     const headersContent = `/*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -80,7 +306,6 @@ export async function createAutoFixPR({
 `;
     fileChanges.set('_headers', headersContent);
 
-    // Create/update vercel.json
     let vercelConfig: any = { headers: [] };
     try {
       const existing = await getFileContent(octokit, repoOwner, repoName, 'vercel.json');
@@ -101,18 +326,16 @@ export async function createAutoFixPR({
       },
     ];
     fileChanges.set('vercel.json', JSON.stringify(vercelConfig, null, 2));
-
     fixesApplied.push({
       type: 'Security',
-      fix: `Added ${securityIssues.length} missing security headers`,
+      fix: 'Added security headers (_headers + vercel.json)',
       files: ['_headers', 'vercel.json'],
       impact: '+15 Security points',
     });
   }
 
-  // ─── FIX 3: Missing robots.txt ───
-  const robotsIssue = issues.find((i) => i.issue?.includes('robots.txt'));
-  if (robotsIssue) {
+  // Fix: Missing robots.txt
+  if (/robots\.txt/i.test(allText)) {
     const robotsContent = `User-agent: *
 Allow: /
 Disallow: /admin/
@@ -125,9 +348,8 @@ Sitemap: ${auditResults?.url ?? ''}/sitemap.xml
     fixesApplied.push({ type: 'SEO', fix: 'Created robots.txt', file: 'public/robots.txt', impact: '+5 SEO points' });
   }
 
-  // ─── FIX 4: Missing viewport meta ───
-  const viewportIssue = issues.find((i) => i.type?.includes('viewport') || i.issue?.includes('viewport'));
-  if (viewportIssue) {
+  // Fix: Missing viewport meta
+  if (/viewport/i.test(allText)) {
     const htmlFiles = await findFiles(octokit, repoOwner, repoName, ['.html']);
     for (const file of htmlFiles.slice(0, 3)) {
       const content = fileChanges.get(file) ?? (await getFileContent(octokit, repoOwner, repoName, file));
@@ -139,9 +361,8 @@ Sitemap: ${auditResults?.url ?? ''}/sitemap.xml
     }
   }
 
-  // ─── FIX 5: Missing Open Graph tags ───
-  const ogIssue = issues.find((i) => i.issue?.includes('Open Graph'));
-  if (ogIssue) {
+  // Fix: Missing Open Graph tags
+  if (/open\s*graph/i.test(allText)) {
     const htmlFiles = await findFiles(octokit, repoOwner, repoName, ['.html']);
     for (const file of htmlFiles.slice(0, 1)) {
       const content = fileChanges.get(file) ?? (await getFileContent(octokit, repoOwner, repoName, file));
@@ -160,9 +381,8 @@ Sitemap: ${auditResults?.url ?? ''}/sitemap.xml
     }
   }
 
-  // ─── FIX 6: Render-blocking scripts ───
-  const renderBlockingIssue = issues.find((i) => i.type?.includes('render-blocking') || i.issue?.includes('render-blocking'));
-  if (renderBlockingIssue) {
+  // Fix: Render-blocking scripts
+  if (/render.?blocking/i.test(allText)) {
     const htmlFiles = await findFiles(octokit, repoOwner, repoName, ['.html']);
     for (const file of htmlFiles.slice(0, 3)) {
       const content = fileChanges.get(file) ?? (await getFileContent(octokit, repoOwner, repoName, file));
@@ -184,8 +404,14 @@ Sitemap: ${auditResults?.url ?? ''}/sitemap.xml
     }
   }
 
+  // ─── Nothing fixable ───
   if (fixesApplied.length === 0) {
-    return { success: false, reason: 'No automatically fixable issues found in repo files', fixesApplied: [], estimatedGain: 0 };
+    return {
+      success: false,
+      reason: 'No automatically fixable issues found. The detected issues require manual code changes.',
+      fixesApplied: [],
+      estimatedGain: 0,
+    };
   }
 
   // ─── Create Branch + Commit + PR ───
@@ -221,27 +447,27 @@ Sitemap: ${auditResults?.url ?? ''}/sitemap.xml
     return total + (match ? parseInt(match[1]) : 0);
   }, 0);
 
-  const prBody = `## 🤖 AuditIQ Auto-Fix PR
+  const prBody = `## AuditIQ Auto-Fix PR
 
-This PR was automatically generated by [AuditIQ](https://auditiq.com) based on your site audit.
+This PR was automatically generated by [AuditIQ](https://auditiq.com) based on your repository audit.
 
-### ✅ Fixes Applied (${fixesApplied.length} total)
+### Fixes Applied (${fixesApplied.length} total)
 
-${fixesApplied.map((fix) => `- **${fix.type}**: ${fix.fix} → \`${fix.impact}\``).join('\n')}
+${fixesApplied.map((fix) => `- **${fix.type}**: ${fix.fix} \u2192 \`${fix.impact}\``).join('\n')}
 
-### 📊 Estimated Score Improvement
+### Estimated Score Improvement
 Current score + ~${estimatedGain} points after merge
 
-### 🔍 Files Changed
+### Files Changed
 ${Array.from(fileChanges.keys()).map((f) => `- \`${f}\``).join('\n')}
 
 ---
-*Generated by AuditIQ — [View full audit report](https://auditiq.com)*`;
+*Generated by AuditIQ \u2014 [View full audit report](https://auditiq.com)*`;
 
   const { data: pr } = await octokit.pulls.create({
     owner: repoOwner,
     repo: repoName,
-    title: `🤖 AuditIQ: Auto-fix ${fixesApplied.length} issues (est. +${estimatedGain} score)`,
+    title: `AuditIQ: Auto-fix ${fixesApplied.length} issues (est. +${estimatedGain} score)`,
     body: prBody,
     head: branchName,
     base: defaultBranch,
@@ -277,7 +503,7 @@ async function generateMetaDescription(url?: string, title?: string): Promise<st
     );
     return (response.choices[0]?.message?.content || '').trim().slice(0, 160);
   } catch {
-    return `${title ?? 'Website'} — visit us for more information.`;
+    return `${title ?? 'Website'} \u2014 visit us for more information.`;
   }
 }
 
@@ -288,7 +514,7 @@ async function findFiles(octokit: Octokit, owner: string, repo: string, extensio
       .filter((item) => item.type === 'blob' && extensions.some((ext) => item.path?.endsWith(ext)))
       .map((item) => item.path!)
       .filter(Boolean)
-      .slice(0, 10);
+      .slice(0, 20);
   } catch {
     return [];
   }
