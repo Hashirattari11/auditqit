@@ -7,6 +7,7 @@ import Link from 'next/link';
 import UpgradeModal from '@/components/UpgradeModal';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import GitHubRepoPicker from '@/components/GitHubRepoPicker';
 
 /* ── Counting hook ────────────────────────────────────────────── */
 function useCountUp(target: number, duration = 2000) {
@@ -53,8 +54,10 @@ export default function LandingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [manualUrlMode, setManualUrlMode] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
+  const hasGithubConnected = (session?.user as any)?.hasGithubConnected;
 
   useEffect(() => {
     fetchRecentAudits();
@@ -210,26 +213,60 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <input
-                  type="text" value={url}
-                  onChange={(e) => { setUrl(e.target.value); setError(''); if (isGitHubUrl(e.target.value)) setActiveTab('github'); }}
-                  placeholder={activeTab === 'web' ? 'Enter website URL (e.g., example.com)' : 'Enter GitHub repo (e.g., github.com/user/repo)'}
-                  className="input text-base"
-                  disabled={loading}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+              {activeTab === 'web' ? (
+                /* ── Website URL input ── */
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text" value={url}
+                      onChange={(e) => { setUrl(e.target.value); setError(''); }}
+                      placeholder="Enter website URL (e.g., example.com)"
+                      className="input text-base"
+                      disabled={loading}
+                    />
+                  </div>
+                  <button type="submit" disabled={loading} className="btn-primary whitespace-nowrap disabled:opacity-50">
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        Analyzing...
+                      </span>
+                    ) : 'Run Audit'}
+                  </button>
+                </div>
+              ) : hasGithubConnected && !manualUrlMode ? (
+                /* ── GitHub repo picker (connected) ── */
+                <GitHubRepoPicker
+                  onSelect={(repoUrl) => { setUrl(repoUrl); setError(''); handleSubmit(new Event('submit') as any); }}
+                  onManualUrl={() => setManualUrlMode(true)}
+                  isGithubConnected={true}
+                  loading={loading}
                 />
-              </div>
-              <button type="submit" disabled={loading} className="btn-primary whitespace-nowrap disabled:opacity-50">
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                    Analyzing...
-                  </span>
-                ) : activeTab === 'github' ? 'Scan Repository' : 'Run Audit'}
-              </button>
+              ) : (
+                /* ── GitHub manual URL input (not connected or manual mode) ── */
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text" value={url}
+                      onChange={(e) => { setUrl(e.target.value); setError(''); if (isGitHubUrl(e.target.value)) setActiveTab('github'); }}
+                      placeholder="Enter GitHub repo (e.g., github.com/user/repo)"
+                      className="input text-base"
+                      disabled={loading}
+                    />
+                  </div>
+                  <button type="submit" disabled={loading} className="btn-primary whitespace-nowrap disabled:opacity-50">
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        Scanning...
+                      </span>
+                    ) : 'Scan Repository'}
+                  </button>
+                </div>
+              )}
+              {error && <p className="mt-1 text-accent-red text-sm text-left">{error}</p>}
             </form>
-            {error && <p className="mt-3 text-accent-red text-sm text-left">{error}</p>}
           </div>
 
           {/* Floating Mock Cards */}
