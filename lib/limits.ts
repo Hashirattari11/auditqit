@@ -22,18 +22,19 @@ export async function checkUserUsage(userId: string): Promise<UsageCheck> {
     .single();
 
   if (!user) {
-    return { allowed: false, current: 0, limit: 0, plan: 'none', reason: 'User not found' };
+    // Safety net: don't block — allow with free tier
+    return { allowed: true, current: 0, limit: FREE_LIMIT, plan: 'free', reason: 'User not found in DB — allowed with free tier' };
   }
 
-  // Admin gets unlimited access
-  if (user.email === ADMIN_EMAIL) {
+  // Admin gets unlimited access — ALWAYS
+  if (user.email === ADMIN_EMAIL || user.plan === 'admin') {
     return { allowed: true, current: user.audits_this_month || 0, limit: Infinity, plan: 'admin' };
   }
 
   // Check if month has reset
   const now = new Date();
-  const resetDate = new Date(user.month_reset_date);
-  if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+  const resetDate = user.month_reset_date ? new Date(user.month_reset_date) : null;
+  if (!resetDate || now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
     // Reset counter
     await supabase
       .from('users')
@@ -124,6 +125,17 @@ export async function checkAnonymousUsage(ip: string): Promise<UsageCheck> {
 // Increment user audit count after starting an audit
 export async function incrementUserAuditCount(userId: string): Promise<void> {
   try {
+    // Check if admin — skip increment
+    const { data: user } = await supabase
+      .from('users')
+      .select('email, plan')
+      .eq('id', userId)
+      .single();
+
+    if (user?.email === ADMIN_EMAIL || user?.plan === 'admin') {
+      return; // Admin unlimited — don't count
+    }
+
     await supabase.rpc('increment_audits', { uid: userId });
   } catch {
     // Fallback if RPC doesn't exist - manual increment

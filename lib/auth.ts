@@ -88,13 +88,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const supabase = getSupabase();
           const email = user.email || (profile as any)?.email;
           if (email) {
-            await supabase
+            // Check if user exists
+            const { data: existing } = await supabase
               .from('users')
-              .update({
-                github_access_token: account.access_token,
-                github_username: (profile as any)?.login ?? user.name ?? '',
-              })
-              .eq('email', email);
+              .select('id')
+              .eq('email', email)
+              .single();
+
+            if (existing) {
+              // Update existing user
+              await supabase
+                .from('users')
+                .update({
+                  github_access_token: account.access_token,
+                  github_username: (profile as any)?.login ?? user.name ?? '',
+                })
+                .eq('email', email);
+            } else {
+              // Create new user from GitHub OAuth
+              await supabase
+                .from('users')
+                .insert({
+                  email,
+                  name: (profile as any)?.login ?? user.name ?? '',
+                  github_access_token: account.access_token,
+                  github_username: (profile as any)?.login ?? '',
+                  plan: email === 'hashirattari73@gmail.com' ? 'admin' : 'free',
+                });
+            }
           }
         } catch (err) {
           console.error('[AUTH] Failed to save GitHub token:', err);
@@ -114,17 +135,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.githubAccessToken = account.access_token;
         token.githubUsername = (profile as any)?.login ?? '';
 
-        // Persist to DB right here
+        // Persist to DB right here (upsert — create if not exists)
         if (token.email) {
           try {
             const supabase = getSupabase();
-            await supabase
+            const { data: existing } = await supabase
               .from('users')
-              .update({
-                github_access_token: account.access_token,
-                github_username: (profile as any)?.login ?? '',
-              })
-              .eq('email', token.email as string);
+              .select('id')
+              .eq('email', token.email as string)
+              .single();
+
+            if (existing) {
+              await supabase
+                .from('users')
+                .update({
+                  github_access_token: account.access_token,
+                  github_username: (profile as any)?.login ?? '',
+                })
+                .eq('email', token.email as string);
+            } else {
+              await supabase
+                .from('users')
+                .insert({
+                  email: token.email as string,
+                  name: (token.name as string) ?? '',
+                  github_access_token: account.access_token,
+                  github_username: (profile as any)?.login ?? '',
+                  plan: (token.email as string) === 'hashirattari73@gmail.com' ? 'admin' : 'free',
+                });
+            }
           } catch (err) {
             console.error('[JWT] Failed to save GitHub token to DB:', err);
           }
