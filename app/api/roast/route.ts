@@ -86,19 +86,25 @@ export async function POST(req: Request) {
       roastText = `Performance: ${perfScore}/100, SEO: ${seoScore}/100, Security: ${secScore}/100. That's all you need to know — fix it!`;
     }
 
-    // Save to DB
-    const roast = await db.createRoast({
-      url: normalizedUrl,
-      domain,
-      roast_text: roastText,
-      perf_score: perfScore,
-      seo_score: seoScore,
-      sec_score: secScore,
-      bug_count: bugCount,
-    });
+    // Save to DB (non-critical — don't crash if DB is down)
+    let roastId = null;
+    try {
+      const roast = await db.createRoast({
+        url: normalizedUrl,
+        domain,
+        roast_text: roastText,
+        perf_score: perfScore,
+        seo_score: seoScore,
+        sec_score: secScore,
+        bug_count: bugCount,
+      });
+      roastId = (roast as any)?.id ?? null;
+    } catch (dbErr) {
+      console.error('[roast] DB save failed (non-critical):', dbErr);
+    }
 
     return NextResponse.json({
-      id: (roast as any).id,
+      id: roastId,
       roastText,
       domain,
       perfScore,

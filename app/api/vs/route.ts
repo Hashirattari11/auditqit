@@ -84,14 +84,20 @@ Write 2-3 sentences of battle commentary. Be dramatic and fun. Reference actual 
       commentary = `${domain1} scored ${Math.round((scores1.performance + scores1.seo + scores1.security) / 3)}/100 overall while ${domain2} scored ${Math.round((scores2.performance + scores2.seo + scores2.security) / 3)}/100.`;
     }
 
-    // Save
-    const battle = await db.createVsBattle({
-      url1: n1, url2: n2, domain1, domain2,
-      scores1, scores2, winner: overallWinner, commentary,
-    });
+    // Save (non-critical)
+    let battleId = null;
+    try {
+      const battle = await db.createVsBattle({
+        url1: n1, url2: n2, domain1, domain2,
+        scores1, scores2, winner: overallWinner, commentary,
+      });
+      battleId = (battle as any)?.id ?? null;
+    } catch (dbErr) {
+      console.error('[vs] DB save failed (non-critical):', dbErr);
+    }
 
     return NextResponse.json({
-      id: (battle as any).id,
+      id: battleId,
       scores1, scores2, domain1, domain2,
       categoryWinners, overallWinner, commentary,
     });
