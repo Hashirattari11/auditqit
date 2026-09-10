@@ -83,10 +83,10 @@ export default function LandingPage() {
 
   const isGitHubUrl = (input: string) => /github\.com\/[^/]+\/[^/]+/.test(input);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, overrideUrl?: string) => {
     e.preventDefault();
     setError('');
-    let finalUrl = url.trim();
+    let finalUrl = (overrideUrl || url).trim();
     if (!finalUrl) { setError('Please enter a URL'); return; }
     if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) finalUrl = 'https://' + finalUrl;
     try { new URL(finalUrl); } catch { setError('Please enter a valid URL'); return; }
@@ -238,7 +238,7 @@ export default function LandingPage() {
               ) : hasGithubConnected && !manualUrlMode ? (
                 /* ── GitHub repo picker (connected) ── */
                 <GitHubRepoPicker
-                  onSelect={(repoUrl) => { setUrl(repoUrl); setError(''); handleSubmit(new Event('submit') as any); }}
+                  onSelect={(repoUrl) => { setUrl(repoUrl); setError(''); handleSubmit({ preventDefault: () => {} } as any, repoUrl); }}
                   onManualUrl={() => setManualUrlMode(true)}
                   isGithubConnected={true}
                   loading={loading}
