@@ -77,13 +77,27 @@ export const db = {
       insertData.user_id = userId;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('audits')
       .insert(insertData)
       .select()
       .single();
 
-    if (error) throw error;
+    // FK violation (user_id not in users table) — retry WITHOUT user_id
+    // so a stale/fake next-auth session id never blocks the audit.
+    if (error && userId) {
+      console.error('createAudit FK error (retrying without user_id):', error.message);
+      const retry = await supabase
+        .from('audits')
+        .insert({ url, status: 'pending' })
+        .select()
+        .single();
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    } else if (error) {
+      throw error;
+    }
+
     return data as Audit;
   },
 
@@ -156,13 +170,26 @@ export const db = {
       insertData.user_id = userId;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('repo_audits')
       .insert(insertData)
       .select()
       .single();
 
-    if (error) throw error;
+    // FK violation (user_id not in users table) — retry WITHOUT user_id
+    if (error && userId) {
+      console.error('createRepoAudit FK error (retrying without user_id):', error.message);
+      const retry = await supabase
+        .from('repo_audits')
+        .insert({ repo_url: repoUrl, owner, repo, status: 'pending' })
+        .select()
+        .single();
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    } else if (error) {
+      throw error;
+    }
+
     return data as RepoAudit;
   },
 

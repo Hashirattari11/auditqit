@@ -176,7 +176,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const supabase = getSupabase();
           const { data: dbUser } = await supabase
             .from('users')
-            .select('github_access_token, github_username, plan')
+            .select('github_access_token, github_username, plan, id')
             .eq('email', token.email as string)
             .single();
 
@@ -186,6 +186,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               token.githubUsername = dbUser.github_username;
             }
             token.plan = dbUser.plan ?? 'free';
+            // Use the REAL database user id (not next-auth's random UUID)
+            if (dbUser.id) token.id = dbUser.id;
           }
         } catch (err) {
           // Silent fail — session will show disconnected
